@@ -113,12 +113,19 @@ data class ActionDefinition(
     @SerialName("end_y")             val endY: Float = 0f,
     @SerialName("duration_ms")       val durationMs: Long = 100L,
     @SerialName("delay_after_ms")    val delayAfterMs: Long = 0L,
-    @SerialName("text_input")        val textInput: String? = null
+    @SerialName("text_input")        val textInput: String? = null,
+    @SerialName("sub_workflow_id")   val subWorkflowId: String? = null  // for INVOKE_WORKFLOW
 )
 
 @Serializable
 enum class InteractionType {
-    TAP, LONG_PRESS, SWIPE, MULTI_TOUCH, TYPE_TEXT, WAIT
+    TAP,
+    LONG_PRESS,
+    SWIPE,
+    MULTI_TOUCH,
+    TYPE_TEXT,
+    WAIT,
+    INVOKE_WORKFLOW   // sub_workflow_id field must be set; engine executes it inline (blocking)
 }
 
 @Serializable

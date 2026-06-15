@@ -146,6 +146,25 @@ class MacroAccessibilityService : AccessibilityService() {
             GestureRequest.MultiTouch(strokes = touches, durationMs = durationMs)
         ).isSuccess
 
+    /**
+     * Convenience: two-finger pinch/spread from the two given normalised [0..1] coordinate pairs.
+     *
+     * Finger 1 starts at (x1, y1) and moves toward (x2, y1).
+     * Finger 2 starts at (x2, y2) and moves toward (x1, y2).
+     * Produces a symmetric two-finger gesture suitable for pinch/zoom/rotate.
+     */
+    fun dispatchMultiTouch(
+        x1: Float, y1: Float,
+        x2: Float, y2: Float,
+        durationMs: Long = 300L
+    ): Boolean = dispatchMultiTouch(
+        listOf(
+            MultiTouchStroke(startNx = x1, startNy = y1, endNx = x2, endNy = y1),
+            MultiTouchStroke(startNx = x2, startNy = y2, endNx = x1, endNy = y2)
+        ),
+        durationMs
+    )
+
     // ─────────────────────────────────────────────────────────────────────────
     // Internal dispatch loop
     // ─────────────────────────────────────────────────────────────────────────

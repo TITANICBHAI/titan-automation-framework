@@ -1,0 +1,71 @@
+{
+  "workflow_id": "example_nested_main",
+  "name": "Nested Workflow Demo",
+  "description": "Main workflow that invokes a login sub-workflow before proceeding to game play. Demonstrates INVOKE_WORKFLOW action type.",
+  "version": "1.0",
+  "initial_state": "check_login_needed",
+  "global_timeout_ms": 120000,
+  "states": {
+    "check_login_needed": {
+      "state_id": "check_login_needed",
+      "description": "Check if the login screen is visible",
+      "timeout_ms": 8000,
+      "max_retries": 2,
+      "vision_rule": {
+        "template_name": "login_button.png",
+        "threshold": 0.82,
+        "match_mode": "TEMPLATE"
+      },
+      "on_success": "do_login",
+      "on_failure": "navigate_to_play",
+      "actions": []
+    },
+
+    "do_login": {
+      "state_id": "do_login",
+      "description": "Invoke the login sub-workflow. Execution blocks here until the sub-workflow completes.",
+      "timeout_ms": 60000,
+      "max_retries": 1,
+      "actions": [
+        {
+          "interaction_type": "INVOKE_WORKFLOW",
+          "sub_workflow_id": "example_nested_sub_login"
+        }
+      ],
+      "on_success": "navigate_to_play",
+      "on_failure": "end_failed"
+    },
+
+    "navigate_to_play": {
+      "state_id": "navigate_to_play",
+      "description": "Tap the Play button on the main menu",
+      "timeout_ms": 10000,
+      "max_retries": 3,
+      "vision_rule": {
+        "template_name": "play_button.png",
+        "threshold": 0.85,
+        "match_mode": "TEMPLATE"
+      },
+      "actions": [
+        {
+          "interaction_type": "TAP",
+          "x": 0.5,
+          "y": 0.72,
+          "delay_after_ms": 1500
+        }
+      ],
+      "on_success": "END",
+      "on_failure": "end_failed"
+    },
+
+    "end_failed": {
+      "state_id": "end_failed",
+      "description": "Terminal failure state",
+      "timeout_ms": 1000,
+      "max_retries": 0,
+      "actions": [],
+      "on_success": "END",
+      "on_failure": "END"
+    }
+  }
+}

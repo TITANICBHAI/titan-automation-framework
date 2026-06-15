@@ -57,13 +57,14 @@ import javax.inject.Singleton
  */
 @Singleton
 class MacroEngine @Inject constructor(
-    private val repository     : WorkflowRepository,
-    private val visionEngine   : VisionEngine,
-    private val rlEngine       : RLEngine,
-    private val thermal        : ThermalGovernor,
+    private val repository        : WorkflowRepository,
+    private val visionEngine      : VisionEngine,
+    private val rlEngine          : RLEngine,
+    private val thermal           : ThermalGovernor,
     private val eventBus          : TitanEventBus,
     private val frameProvider     : FrameProvider,
-    private val templateRepository: TemplateRepository
+    private val templateRepository: TemplateRepository,
+    private val hotReloadManager  : HotReloadManager
 ) {
 
     private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -132,15 +133,35 @@ class MacroEngine @Inject constructor(
         initialSession: WorkflowSession
     ) {
         var session = initialSession
-        val globalDeadline = System.currentTimeMillis() + definition.globalTimeoutMs
+
+        // Mutable reference so hot-reload can swap the definition between state transitions.
+        // The swap is safe because both writer (reloadJob) and reader (engine loop) execute on
+        // Dispatchers.Default; the coroutine context switch at each loop boundary provides the
+        // happens-before guarantee required for visibility.
+        var effectiveDefinition = definition
+
+        // Sidecar coroutine: watch for file-system hot-reload events for this workflow.
+        // Takes effect at the NEXT state boundary (not mid-state).
+        val reloadJob = engineScope.launch {
+            hotReloadManager.reloadEvents.collect { event ->
+                if (event.workflowId == definition.workflowId &&
+                    event.operation == HotReloadOperation.UPDATE &&
+                    event.definition != null
+                ) {
+                    effectiveDefinition = event.definition
+                    Log.i(TAG, "Hot-reload applied to running workflow: ${definition.workflowId}")
+                }
+            }
+        }
 
         try {
             withTimeout(definition.globalTimeoutMs) {
                 while (!session.completed && !session.failed) {
+                    val wf = effectiveDefinition  // snapshot; safe to use for this iteration
 
                     // Thermal halt
                     if (thermal.isCritical) {
-                        Log.w(TAG, "Thermal critical — halting workflow ${definition.workflowId}")
+                        Log.w(TAG, "Thermal critical — halting workflow ${wf.workflowId}")
                         session = session.copy(failed = true)
                         break
                     }
@@ -149,12 +170,12 @@ class MacroEngine @Inject constructor(
                     while (paused) delay(200)
 
                     val stateId = session.currentState
-                    val state   = definition.states[stateId] ?: run {
+                    val state   = wf.states[stateId] ?: run {
                         if (stateId == "END") {
                             session = session.copy(completed = true)
                             return@withTimeout
                         }
-                        Log.e(TAG, "Unknown state: $stateId in workflow ${definition.workflowId}")
+                        Log.e(TAG, "Unknown state: $stateId in workflow ${wf.workflowId}")
                         session = session.copy(failed = true)
                         return@withTimeout
                     }
@@ -163,7 +184,7 @@ class MacroEngine @Inject constructor(
 
                     // Execute state with per-state timeout
                     val result = withTimeoutOrNull(state.timeoutMs) {
-                        executeState(definition, state, session)
+                        executeState(wf, state, session)
                     }
 
                     val durationMs = System.currentTimeMillis() - stepStart
@@ -175,9 +196,9 @@ class MacroEngine @Inject constructor(
                     ))
 
                     session = when {
-                        result == null -> handleTimeout(state, session)    // state timed out
-                        result.success -> handleSuccess(state, session, result, definition)
-                        else           -> handleFailure(state, session, definition)
+                        result == null -> handleTimeout(state, session)
+                        result.success -> handleSuccess(state, session, result, wf)
+                        else           -> handleFailure(state, session, wf)
                     }
 
                     // Checkpoint after every transition
@@ -190,6 +211,7 @@ class MacroEngine @Inject constructor(
         } catch (e: CancellationException) {
             Log.d(TAG, "Workflow ${definition.workflowId} cancelled")
         } finally {
+            reloadJob.cancel()
             val succeeded = session.completed && !session.failed
             rlEngine.onEpisodeEnd(succeeded)
             if (succeeded) repository.clearSession()
@@ -388,6 +410,30 @@ class MacroEngine @Inject constructor(
      * TYPE_TEXT    — sets text on the currently focused input node via AccessibilityNodeInfo ACTION_SET_TEXT
      */
     private suspend fun executeAction(action: ActionDefinition, isRlManaged: Boolean): Boolean {
+        // ── INVOKE_WORKFLOW — recursive sub-workflow execution ────────────────
+        // Does not require the Accessibility service to be connected.
+        if (action.interactionType == InteractionType.INVOKE_WORKFLOW) {
+            val subId = action.subWorkflowId ?: run {
+                Log.w(TAG, "INVOKE_WORKFLOW: 'sub_workflow_id' not set in action definition")
+                return false
+            }
+            val subDefinition = repository.getWorkflow(subId) ?: run {
+                Log.w(TAG, "INVOKE_WORKFLOW: sub-workflow '$subId' not found in repository")
+                return false
+            }
+            val subSession = WorkflowSession(
+                workflowId   = subId,
+                currentState = subDefinition.initialState
+            )
+            Log.i(TAG, "INVOKE_WORKFLOW: entering sub-workflow '$subId'")
+            updateSession(subSession)
+            runWorkflow(subDefinition, subSession)
+            Log.i(TAG, "INVOKE_WORKFLOW: returned from sub-workflow '$subId'")
+            if (action.delayAfterMs > 0) delay(action.delayAfterMs)
+            return true
+        }
+
+        // ── All other action types require the Accessibility service ──────────
         val svc = MacroAccessibilityService.get() ?: return false
 
         val ok = when (action.interactionType) {
@@ -415,7 +461,6 @@ class MacroEngine @Inject constructor(
                 val root = svc.rootInActiveWindow
                 val focused = root?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
                     ?: run {
-                        // Focus not set — tap the target coordinates first
                         svc.dispatchClick(action.x, action.y, GesturePriority.NORMAL)
                         delay(300)
                         svc.rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
@@ -435,6 +480,7 @@ class MacroEngine @Inject constructor(
                 delay(action.durationMs)
                 true
             }
+            InteractionType.INVOKE_WORKFLOW -> false  // handled above, never reached
         }
 
         if (action.delayAfterMs > 0) delay(action.delayAfterMs)

@@ -12,6 +12,9 @@ import com.titan.automation.domain.model.OcrScanRule
 import com.titan.automation.events.TitanEvent
 import com.titan.automation.events.TitanEventBus
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.opencv.android.Utils
@@ -272,6 +275,21 @@ class VisionEngine @Inject constructor(
         withContext(Dispatchers.Default) {
             val src = region?.let { cropBitmap(frame, it, frame.width, frame.height) } ?: frame
             textRecognizer.process(InputImage.fromBitmap(src, 0)).await().text
+        }
+
+    /**
+     * Batch OCR — process multiple [OcrScanRule]s concurrently on the same [frame].
+     *
+     * Each rule runs in a separate async coroutine so all recognitions are issued
+     * simultaneously rather than serially. Results are returned in the same order as
+     * the input list; null means the rule did not match.
+     *
+     * Use when a workflow state must check several text conditions at once (e.g. game HUD
+     * parsing) to avoid multiplying single-OCR latency by the number of rules.
+     */
+    suspend fun batchOcr(frame: Bitmap, rules: List<OcrScanRule>): List<OcrResult?> =
+        coroutineScope {
+            rules.map { rule -> async { runOcr(frame, rule) } }.awaitAll()
         }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -73,6 +73,7 @@ class ThermalGovernor @Inject constructor(
     val rlEnabled:    Boolean get() = _state.value.rlEnabled
     val isCritical:   Boolean get() = _state.value.thermalLevel == ThermalLevel.CRITICAL
     val captureScale: Float   get() = _state.value.captureScale
+    val isCharging:   Boolean get() = _state.value.isCharging
 
     var onHaltEngine: (() -> Unit)? = null
 
@@ -87,9 +88,13 @@ class ThermalGovernor @Inject constructor(
     // ── Battery broadcast receiver ────────────────────────────────────────────
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context, intent: Intent) {
-            val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-            val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
-            val pct   = if (scale > 0) level * 100 / scale else 100
+            val level  = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale  = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+            val pct    = if (scale > 0) level * 100 / scale else 100
+
+            val status   = intent.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
+            val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                           status == BatteryManager.BATTERY_STATUS_FULL
 
             // Tier 3 thermal fallback: battery temperature in tenths of °C
             val tempTenths = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1)
@@ -97,7 +102,7 @@ class ThermalGovernor @Inject constructor(
                 applyThermalLevel(batteryTempToLevel(tempTenths))
             }
 
-            onBatteryUpdate(pct)
+            onBatteryUpdate(pct, charging)
         }
     }
 
@@ -257,18 +262,22 @@ class ThermalGovernor @Inject constructor(
         if (level == ThermalLevel.CRITICAL) onHaltEngine?.invoke()
     }
 
-    private fun applyBatteryDegradation(thermalFps: Int, batteryPct: Int): Int = when {
-        batteryPct < 5  -> { onHaltEngine?.invoke(); 0 }
-        batteryPct < 15 -> thermalFps.coerceAtMost(3)
-        batteryPct < 30 -> (thermalFps * 0.8f).toInt().coerceAtLeast(1)
-        else            -> thermalFps
+    private fun applyBatteryDegradation(thermalFps: Int, batteryPct: Int): Int {
+        // Charging — stable power supply; skip battery degradation entirely
+        if (_state.value.isCharging) return thermalFps
+        return when {
+            batteryPct < 5  -> { onHaltEngine?.invoke(); 0 }
+            batteryPct < 15 -> thermalFps.coerceAtMost(3)
+            batteryPct < 30 -> (thermalFps * 0.8f).toInt().coerceAtLeast(1)
+            else            -> thermalFps
+        }
     }
 
-    private fun onBatteryUpdate(pct: Int) {
+    private fun onBatteryUpdate(pct: Int, charging: Boolean) {
         val current = _state.value
-        if (current.batteryPct != pct) {
-            _state.value = current.copy(batteryPct = pct)
-            // Re-apply current thermal level with new battery percentage
+        if (current.batteryPct != pct || current.isCharging != charging) {
+            _state.value = current.copy(batteryPct = pct, isCharging = charging)
+            // Re-apply current thermal level with updated battery/charging state
             applyThermalLevel(current.thermalLevel)
         }
     }
@@ -286,5 +295,6 @@ data class GovernorState(
     val targetFps    : Int          = 10,
     val rlEnabled    : Boolean      = true,
     val captureScale : Float        = 1.0f,
-    val batteryPct   : Int          = 100
+    val batteryPct   : Int          = 100,
+    val isCharging   : Boolean      = false
 )
