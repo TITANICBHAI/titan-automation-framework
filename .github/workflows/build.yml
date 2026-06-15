@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ main ]
 
-# Cancel any in-progress run on the same branch so storage isn't wasted
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -60,7 +59,6 @@ jobs:
       # build.gradle.kts automatically falls back to org.opencv:opencv:4.9.0
       # from Maven Central when the local file is absent — no manual step needed.
       - name: Confirm OpenCV fallback is active
-        working-directory: titan-automation
         run: |
           if [ -f "app/libs/opencv.aar" ]; then
             echo "✔ Local opencv.aar found — using bundled library"
@@ -70,12 +68,10 @@ jobs:
 
       # ── 7. Gradle wrapper permissions ────────────────────────────────────────
       - name: Grant execute permission to gradlew
-        working-directory: titan-automation
         run: chmod +x gradlew
 
       # ── 8. Build ─────────────────────────────────────────────────────────────
       - name: Build Debug APK
-        working-directory: titan-automation
         run: ./gradlew assembleDebug --no-daemon --stacktrace
         env:
           ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
@@ -83,7 +79,6 @@ jobs:
       # ── 9. Collect APK info ───────────────────────────────────────────────────
       - name: Locate APK
         id: apk
-        working-directory: titan-automation
         run: |
           APK=$(find app/build/outputs/apk/debug -name "*.apk" | head -1)
           echo "path=$APK" >> $GITHUB_OUTPUT
@@ -96,7 +91,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: titan-automation-debug-${{ github.sha }}
-          path: titan-automation/${{ steps.apk.outputs.path }}
+          path: ${{ steps.apk.outputs.path }}
           retention-days: 30
           if-no-files-found: error
 
