@@ -1,6 +1,7 @@
 package com.titan.automation.engine.playback
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.graphics.Rect
 import com.titan.automation.data.db.MacroDatabase
 import com.titan.automation.domain.model.LoopMode
@@ -269,12 +270,19 @@ class SimplePlaybackEngine @Inject constructor(
             minConfidence = action.minConfidence,
             actionIntent  = "wait_for"
         )
+        // Load template bitmap once before polling
+        val templateEntity = db.templateDao().getById(action.templateId)
+        val templateBitmap = templateEntity?.let {
+            BitmapFactory.decodeByteArray(it.bitmapBytes, 0, it.bitmapBytes.size)
+        }
+        if (templateBitmap == null) return@withTimeoutOrNull null
+
         while (isActive) {
             val frame = frameProvider.latestBitmap()
             if (frame != null) {
-                val match = visionEngine.findTemplate(rule, frame)
+                val match = visionEngine.findTemplate(frame, templateBitmap, rule)
                 if (match != null && match.confidence >= action.minConfidence) {
-                    return@withTimeoutOrNull Pair(match.cx, match.cy)
+                    return@withTimeoutOrNull Pair(match.normX, match.normY)
                 }
             }
             delay(500L)

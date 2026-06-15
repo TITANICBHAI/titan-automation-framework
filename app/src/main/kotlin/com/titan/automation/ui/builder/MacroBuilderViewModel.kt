@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -72,6 +73,11 @@ class MacroBuilderViewModel @Inject constructor(
 
     private val _pickerResultForAction = MutableStateFlow<Pair<String, Pair<Float,Float>>?>(null)
     val pickerResultForAction: StateFlow<Pair<String, Pair<Float,Float>>?> = _pickerResultForAction.asStateFlow()
+
+    // ── Export ────────────────────────────────────────────────────────────────
+
+    private val _exportedJson = MutableStateFlow<String?>(null)
+    val exportedJson: StateFlow<String?> = _exportedJson.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -203,8 +209,11 @@ class MacroBuilderViewModel @Inject constructor(
 
     // ── Export ────────────────────────────────────────────────────────────────
 
-    fun exportMacroJson(macro: SimpleMacro): String =
-        exportJson.encodeToString(macro)
+    fun exportMacroJson(macro: SimpleMacro): String {
+        val json = exportJson.encodeToString(macro)
+        _exportedJson.value = json
+        return json
+    }
 
     fun clearExportedJson() {
         _exportedJson.value = null

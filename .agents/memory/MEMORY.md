@@ -3,3 +3,5 @@
 - [GovernorState fields](governor-state.md) — GovernorState has thermalLevel: ThermalLevel (NOT .level), targetFps: Int, rlEnabled: Boolean; ThermalLevel enum: NORMAL/LIGHT/MODERATE/SEVERE/CRITICAL.
 - [ScheduleMode location](schedule-mode.md) — ScheduleMode enum lives in SimpleMacro.kt (domain model), NOT in MacroScheduler.kt. MacroScheduler imports it from domain.
 - [WorkflowDataStore keys](datastore-keys.md) — All new macro-default keys already defined: DEFAULT_SHOW_DOTS, DEFAULT_JITTER_ENABLED, DEFAULT_JITTER_RADIUS, DEFAULT_SPEED, RESPECT_THERMAL, TOUCH_NOISE_STDDEV.
+- [SimplePlaybackEngine VisionEngine call](playback-vision-fix.md) — waitForImage must load template bitmap from db.templateDao().getById() first, then call findTemplate(frame, bitmap, rule); MatchResult fields are normX/normY (not cx/cy).
+- [MacroBuilderViewModel exportedJson](viewmodel-exported-json.md) — _exportedJson MutableStateFlow<String?> must be declared; exportMacroJson() sets it AND returns the string; clearExportedJson() nulls it.
