@@ -5,3 +5,5 @@
 - [WorkflowDataStore keys](datastore-keys.md) — All new macro-default keys already defined: DEFAULT_SHOW_DOTS, DEFAULT_JITTER_ENABLED, DEFAULT_JITTER_RADIUS, DEFAULT_SPEED, RESPECT_THERMAL, TOUCH_NOISE_STDDEV.
 - [SimplePlaybackEngine VisionEngine call](playback-vision-fix.md) — waitForImage must load template bitmap from db.templateDao().getById() first, then call findTemplate(frame, bitmap, rule); MatchResult fields are normX/normY (not cx/cy).
 - [MacroBuilderViewModel exportedJson](viewmodel-exported-json.md) — _exportedJson MutableStateFlow<String?> must be declared; exportMacroJson() sets it AND returns the string; clearExportedJson() nulls it.
+- [WorkflowDSL sensing rules](dsl-sensing-rules.md) — WorkflowState has 3 parallel rules: visionMatchRule (TEMPLATE or ORB via matchMode), ocrScanRule, histogramScanRule; plus conditions list for IF/ELSE. All 7 ConditionTypes fully evaluated in MacroEngine.evaluateConditions().
+- [GitHub push blocked](github-push-blocked.md) — Push hangs on credentials; GITHUB_PERSONAL_ACCESS_TOKEN secret must be set in Replit Secrets; workflow commits locally even when push fails.
