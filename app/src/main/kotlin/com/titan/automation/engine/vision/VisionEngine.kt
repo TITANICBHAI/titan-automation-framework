@@ -19,10 +19,15 @@ import org.opencv.core.Core
 import org.opencv.core.CvType
 import org.opencv.core.Mat
 import org.opencv.core.MatOfFloat
+import org.opencv.core.MatOfInt
+import org.opencv.core.MatOfKeyPoint
+import org.opencv.core.MatOfDMatch
 import org.opencv.core.MatOfPoint
 import org.opencv.core.Point
 import org.opencv.core.Scalar
 import org.opencv.core.Size
+import org.opencv.features2d.BFMatcher
+import org.opencv.features2d.ORB
 import org.opencv.imgproc.Imgproc
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -309,6 +314,208 @@ class VisionEngine @Inject constructor(
                 src.release()
             }
         }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // detectRegion — bounding boxes of significant UI elements in an ROI
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Find bounding boxes of visually significant regions (UI elements, buttons,
+     * icons) within [region] of [frame] using adaptive thresholding + contour
+     * finding.
+     *
+     * Filters by contour area ≥ [minArea] and aspect ratio within [0.1 .. 10].
+     * Results are in absolute pixel coordinates of [frame], sorted largest-first.
+     *
+     * Use this to dynamically discover interactive elements without a template.
+     */
+    suspend fun detectRegion(
+        frame: Bitmap,
+        region: ScreenRegion? = null,
+        minArea: Double = 400.0,
+        maxResults: Int = 20
+    ): List<android.graphics.Rect> = withContext(Dispatchers.Default) {
+        val src = Mat()
+        try {
+            val cropped = region?.let { cropBitmap(frame, it, frame.width, frame.height) } ?: frame
+            Utils.bitmapToMat(cropped, src)
+            Imgproc.cvtColor(src, src, Imgproc.COLOR_RGBA2GRAY)
+            Imgproc.GaussianBlur(src, src, Size(3.0, 3.0), 0.0)
+
+            val thresh = Mat()
+            Imgproc.adaptiveThreshold(
+                src, thresh, 255.0,
+                Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,
+                Imgproc.THRESH_BINARY_INV,
+                11, 2.0
+            )
+
+            val contours = mutableListOf<MatOfPoint>()
+            Imgproc.findContours(
+                thresh, contours, Mat(),
+                Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE
+            )
+            thresh.release()
+
+            val offsetX = region?.left ?: 0
+            val offsetY = region?.top  ?: 0
+
+            contours
+                .filter { Imgproc.contourArea(it) >= minArea }
+                .sortedByDescending { Imgproc.contourArea(it) }
+                .take(maxResults)
+                .mapNotNull { contour ->
+                    val br = Imgproc.boundingRect(contour)
+                    val ar = br.width.toFloat() / br.height.toFloat()
+                    if (ar < 0.1f || ar > 10f) return@mapNotNull null
+                    android.graphics.Rect(
+                        br.x + offsetX,
+                        br.y + offsetY,
+                        br.x + offsetX + br.width,
+                        br.y + offsetY + br.height
+                    )
+                }
+        } finally {
+            src.release()
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ORB feature matching — scale/rotation-invariant template detection
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Match [template] against [frame] using ORB keypoint descriptors + BFMatcher
+     * (Hamming distance). Invariant to scale and rotation — ideal for templates
+     * that appear at different sizes/orientations (rotated icons, tilted cards).
+     *
+     * Good matches are filtered using Lowe's ratio test ([matchRatioThreshold]).
+     * Requires ≥ [minGoodMatches] good matches to return a result.
+     *
+     * @return [MatchResult] whose (normX, normY) is the centroid of matched
+     *   keypoints in the source frame (normalised 0..1), or null if insufficient
+     *   good matches or confidence < [rule.minConfidence].
+     */
+    suspend fun matchOrb(
+        frame: Bitmap,
+        template: Bitmap,
+        rule: VisionMatchRule,
+        minGoodMatches: Int = 8,
+        matchRatioThreshold: Float = 0.75f
+    ): MatchResult? = withContext(Dispatchers.Default) {
+        val srcGray  = Mat()
+        val tmplGray = Mat()
+        val descSrc  = Mat()
+        val descTmpl = Mat()
+        val kpSrc    = MatOfKeyPoint()
+        val kpTmpl   = MatOfKeyPoint()
+        try {
+            Utils.bitmapToMat(frame, srcGray)
+            Utils.bitmapToMat(template, tmplGray)
+            Imgproc.cvtColor(srcGray,  srcGray,  Imgproc.COLOR_RGBA2GRAY)
+            Imgproc.cvtColor(tmplGray, tmplGray, Imgproc.COLOR_RGBA2GRAY)
+
+            val roi = rule.region?.let { cropMat(srcGray, it, frame.width, frame.height) } ?: srcGray
+
+            val orb = ORB.create(500)
+            orb.detectAndCompute(roi,      Mat(), kpSrc,  descSrc)
+            orb.detectAndCompute(tmplGray, Mat(), kpTmpl, descTmpl)
+
+            if (descSrc.empty() || descTmpl.empty()) return@withContext null
+
+            val matcher    = BFMatcher.create(Core.NORM_HAMMING, false)
+            val knnMatches = ArrayList<MatOfDMatch>()
+            matcher.knnMatch(descTmpl, descSrc, knnMatches, 2)
+
+            // Lowe's ratio test
+            val goodMatches = knnMatches.filter { m ->
+                val arr = m.toArray()
+                arr.size >= 2 && arr[0].distance < matchRatioThreshold * arr[1].distance
+            }
+
+            if (goodMatches.size < minGoodMatches) return@withContext null
+
+            val srcKps  = kpSrc.toArray()
+            val offsetX = (rule.region?.left ?: 0).toDouble()
+            val offsetY = (rule.region?.top  ?: 0).toDouble()
+
+            var sumX = 0.0; var sumY = 0.0
+            goodMatches.forEach { m ->
+                val trainIdx = m.toArray()[0].trainIdx
+                sumX += srcKps[trainIdx].pt.x + offsetX
+                sumY += srcKps[trainIdx].pt.y + offsetY
+            }
+
+            val cx   = (sumX / goodMatches.size / frame.width).toFloat().coerceIn(0f, 1f)
+            val cy   = (sumY / goodMatches.size / frame.height).toFloat().coerceIn(0f, 1f)
+            val conf = (goodMatches.size.toFloat() / kpTmpl.rows().coerceAtLeast(1).toFloat())
+                .coerceAtMost(1f)
+
+            if (conf < rule.minConfidence) return@withContext null
+
+            MatchResult(confidence = conf, normX = cx, normY = cy, templateId = rule.templateId)
+        } finally {
+            srcGray.release(); tmplGray.release()
+            descSrc.release(); descTmpl.release()
+            kpSrc.release();   kpTmpl.release()
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Histogram comparison — colour-based state classification
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Compute and compare 2-D HSV histograms (50 H-bins × 60 S-bins) of [frame]
+     * and [reference] within [region], using HISTCMP_CORREL.
+     *
+     * Correlation returns values in [-1 .. 1]; result is clamped to [0 .. 1].
+     * Score ≈ 1.0 means identical colour distribution (same game state / scene).
+     * Score < 0.5 typically indicates a significant visual state change.
+     *
+     * Use this for scene/state detection without requiring a pixel-perfect template:
+     *   e.g. compare current frame to a saved "game over" reference screenshot.
+     */
+    suspend fun compareHistogram(
+        frame: Bitmap,
+        reference: Bitmap,
+        region: ScreenRegion? = null
+    ): Float = withContext(Dispatchers.Default) {
+        val srcMat  = Mat(); val refMat  = Mat()
+        val srcHsv  = Mat(); val refHsv  = Mat()
+        val srcHist = Mat(); val refHist = Mat()
+        try {
+            val croppedFrame = region?.let { cropBitmap(frame,     it, frame.width,     frame.height)     } ?: frame
+            val croppedRef   = region?.let { cropBitmap(reference, it, reference.width, reference.height) } ?: reference
+
+            Utils.bitmapToMat(croppedFrame, srcMat)
+            Utils.bitmapToMat(croppedRef,   refMat)
+
+            // RGBA → BGR → HSV
+            Imgproc.cvtColor(srcMat, srcHsv, Imgproc.COLOR_RGBA2BGR)
+            Imgproc.cvtColor(refMat, refHsv, Imgproc.COLOR_RGBA2BGR)
+            Imgproc.cvtColor(srcHsv, srcHsv, Imgproc.COLOR_BGR2HSV)
+            Imgproc.cvtColor(refHsv, refHsv, Imgproc.COLOR_BGR2HSV)
+
+            val histSize = MatOfInt(50, 60)
+            val ranges   = MatOfFloat(0f, 180f, 0f, 256f)
+            val channels = MatOfInt(0, 1)
+
+            Imgproc.calcHist(listOf(srcHsv), channels, Mat(), srcHist, histSize, ranges, false)
+            Imgproc.calcHist(listOf(refHsv), channels, Mat(), refHist, histSize, ranges, false)
+
+            Core.normalize(srcHist, srcHist, 0.0, 1.0, Core.NORM_MINMAX)
+            Core.normalize(refHist, refHist, 0.0, 1.0, Core.NORM_MINMAX)
+
+            Imgproc.compareHist(srcHist, refHist, Imgproc.HISTCMP_CORREL)
+                .toFloat()
+                .coerceIn(0f, 1f)
+        } finally {
+            srcMat.release();  refMat.release()
+            srcHsv.release();  refHsv.release()
+            srcHist.release(); refHist.release()
+        }
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Helpers

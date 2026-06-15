@@ -9,6 +9,11 @@
 set -euo pipefail
 BOLD="\033[1m"; GREEN="\033[32m"; YELLOW="\033[33m"; RED="\033[31m"; CYAN="\033[36m"; RESET="\033[0m"
 
+# Clean up stale git lock files left by crashed processes
+for _lf in .git/index.lock .git/MERGE_HEAD.lock .git/COMMIT_EDITMSG.lock; do
+    [ -f "$_lf" ] && { rm -f "$_lf"; echo -e "${YELLOW}  ⚠ Removed stale $_lf${RESET}"; } || true
+done
+
 ok()   { echo -e "${GREEN}  ✔ $*${RESET}"; }
 info() { echo -e "${CYAN}  → $*${RESET}"; }
 err()  { echo -e "${RED}  ✖ $*${RESET}"; exit 1; }
