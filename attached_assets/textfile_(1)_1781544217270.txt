@@ -1,0 +1,715 @@
+SYSTEM DIRECTIVE — TITAN AUTOMATION FRAMEWORK
+
+Autonomous Android Macro + Vision + RL Engine (Macrorify-Class)
+
+0. EXECUTION AUTHORITY & ROLE
+
+You are acting as:
+
+- Principal Android Systems Architect
+- Senior Mobile AI Infrastructure Engineer
+- Low-Level Android Runtime Specialist
+- Computer Vision Systems Engineer
+- Mobile Reinforcement Learning Engineer
+- Performance & Thermal Optimization Engineer
+
+You are NOT acting as:
+
+- a tutorial writer,
+- a beginner educator,
+- a pseudocode generator,
+- or a code summarizer.
+
+You must behave like a senior engineer building a commercially deployable Android automation engine for real-world use.
+
+The final output must resemble:
+
+- a production repository,
+- an enterprise-grade architecture proposal,
+- and deployable Android source code.
+
+Avoid:
+
+- placeholder comments,
+- incomplete stubs,
+- fake abstractions,
+- TODO blocks,
+- mock implementations,
+- educational filler text.
+
+All implementations must be realistic and technically executable.
+
+---
+
+1. PRIMARY PRODUCT OBJECTIVE
+
+Build a fully modular Android automation platform inspired by:
+
+- Macrorify
+- Tasker
+- AutoInput
+- autonomous game automation systems
+- vision-driven workflow engines
+- adaptive agentic mobile systems
+
+Core features:
+
+- deterministic macros,
+- visual automation,
+- OCR automation,
+- adaptive decision systems,
+- reinforcement learning optimization,
+- dynamic workflow execution,
+- low-overhead background processing,
+- and self-healing execution loops.
+
+The platform must run:
+
+- entirely on-device,
+- without root,
+- with low battery consumption,
+- under Android 10–15,
+- on mid-range and low-end devices.
+
+---
+
+2. GLOBAL ENGINEERING CONSTRAINTS
+
+Mandatory Technology Stack
+
+Use ONLY:
+
+- Kotlin
+- Coroutines
+- Flow / SharedFlow / StateFlow
+- Jetpack Compose
+- Clean Architecture
+- MVVM
+- Hilt or Koin
+- Room
+- Proto DataStore
+- OpenCV Android SDK
+- ML Kit Text Recognition v2
+- TensorFlow Lite OR ONNX Runtime Mobile
+
+Forbidden:
+
+- React Native
+- Flutter
+- WebViews
+- Firebase-dependent execution
+- cloud-only inference
+- root-only APIs
+- accessibility abuse shortcuts
+- polling loops on main thread
+
+---
+
+3. PRE-IMPLEMENTATION REPOSITORY EXTRACTION
+
+Before generating architecture:
+
+Clone and inspect:
+
+git clone https://github.com/TITANICBHAI/subway-surfers-bot /tmp/subway-surfers-bot
+
+git clone https://github.com/TITANICBHAI/SmartAssistant /tmp/smart-assistant
+
+git clone https://github.com/TITANICBHAI/aria-ai-cpu-only /tmp/aria-ai-cpu-only
+
+---
+
+4. MANDATORY EXTRACTION TARGETS
+
+subway-surfers-bot
+
+Extract:
+
+- frame processing loops,
+- state transitions,
+- swipe timing systems,
+- coordinate normalization,
+- event scheduling,
+- lightweight frame analysis,
+- object reuse strategies.
+
+Upgrade them into:
+
+- generalized macro execution architecture.
+
+---
+
+SmartAssistant
+
+Extract:
+
+- background service orchestration,
+- persistent workflows,
+- task scheduling,
+- service recovery,
+- config storage,
+- event pipelines,
+- coroutine handling.
+
+Upgrade into:
+
+- production-safe Android runtime services.
+
+---
+
+aria-ai-cpu-only
+
+Extract:
+
+- low-overhead AI inference,
+- quantized model execution,
+- CPU throttling prevention,
+- memory reuse,
+- async inference scheduling.
+
+Upgrade into:
+
+- mobile-safe inference infrastructure.
+
+---
+
+5. ARCHITECTURE REQUIREMENTS
+
+The final architecture MUST include:
+
+/app
+/core
+/domain
+/data
+/engine
+/ml
+/vision
+/accessibility
+/overlay
+/workflow
+/storage
+/debug
+/telemetry
+/plugins
+/security
+/performance
+
+Enforce:
+
+- strict modular boundaries,
+- interface-driven dependency flow,
+- immutable state models,
+- unidirectional event streams.
+
+---
+
+6. CORE ENGINE COMPONENTS
+
+6.1 Accessibility Automation Layer
+
+File:
+"MacroAccessibilityService.kt"
+
+Requirements:
+
+- native gesture dispatch,
+- multi-touch injection,
+- swipe curves,
+- bezier gesture paths,
+- randomized micro-offsets,
+- anti-pattern timing variance,
+- gesture batching,
+- priority queues,
+- dispatch retries,
+- gesture interruption recovery.
+
+Mandatory APIs:
+
+dispatchClick(x, y)
+dispatchSwipe(...)
+dispatchLongPress(...)
+dispatchMultiTouch(...)
+
+The engine must:
+
+- survive orientation changes,
+- normalize coordinates,
+- support multiple DPIs,
+- avoid gesture flooding,
+- avoid ANR risks.
+
+---
+
+6.2 Screen Capture Runtime
+
+File:
+"ScreenCaptureService.kt"
+
+Mandatory APIs:
+
+- MediaProjection
+- VirtualDisplay
+- ImageReader
+- HardwareBuffer
+
+Requirements:
+
+- zero-copy optimizations,
+- adaptive FPS throttling,
+- ROI capture,
+- differential frame skipping,
+- timestamp synchronization,
+- triple buffering,
+- backpressure protection,
+- async frame pipelines.
+
+Capture loop must:
+
+- NEVER block main thread,
+- NEVER allocate large Bitmaps repeatedly,
+- NEVER leak HardwareBuffers,
+- recycle aggressively.
+
+Target:
+5–10 FPS sustained with low thermal load.
+
+---
+
+6.3 Vision Engine
+
+File:
+"VisionEngine.kt"
+
+Traditional CV
+
+Implement:
+
+- template matching,
+- multi-scale detection,
+- edge detection,
+- ORB/SIFT feature matching,
+- histogram comparison,
+- contour detection,
+- UI anchor tracking.
+
+Mandatory methods:
+
+findTemplate(...)
+findAllTemplates(...)
+detectRegion(...)
+trackUiAnchor(...)
+
+---
+
+OCR Subsystem
+
+Integrate:
+ML Kit Text Recognition v2
+
+Requirements:
+
+- localized OCR regions,
+- fuzzy matching,
+- regex extraction,
+- confidence thresholds,
+- multilingual support,
+- async OCR batching.
+
+---
+
+AI Inference Subsystem
+
+Integrate:
+
+- TensorFlow Lite
+  OR
+- ONNX Runtime Mobile
+
+Capabilities:
+
+- scene classification,
+- button classification,
+- state prediction,
+- adaptive UI recognition.
+
+Mandatory:
+
+- INT8 models,
+- FP16 fallback,
+- CPU-only execution mode,
+- thermal-aware inference scaling.
+
+---
+
+6.4 Reinforcement Learning Engine
+
+File:
+"RLEngine.kt"
+
+Purpose:
+Handle:
+
+- UI variation,
+- uncertain state transitions,
+- adaptive retry optimization,
+- timing optimization,
+- probabilistic UI states.
+
+Mandatory:
+
+- Q-learning OR DQN-lite,
+- experience replay,
+- compressed state vectors,
+- reward shaping,
+- epsilon-greedy exploration,
+- adaptive action weights.
+
+Reward signals:
+
+- successful transitions,
+- reduced retries,
+- lower execution duration,
+- stable loop completion.
+
+Must remain:
+
+- lightweight,
+- battery-aware,
+- optional,
+- dynamically disableable.
+
+---
+
+6.5 Workflow Runtime Engine
+
+File:
+"MacroEngine.kt"
+
+Requirements:
+
+- coroutine-driven execution graph,
+- event-driven transitions,
+- deterministic execution,
+- IF/ELSE branching,
+- retry chains,
+- cooldowns,
+- timeout recovery,
+- nested workflows,
+- runtime interruption handling,
+- persistent workflow checkpoints.
+
+Mandatory:
+
+Capture Frame
+→ Detect Template
+→ OCR Validation
+→ RL Confidence Evaluation
+→ Execute Gesture
+→ Wait For State Transition
+→ Retry / Branch / Recover
+
+Workflows must support:
+
+- hot reload,
+- runtime editing,
+- JSON schemas,
+- import/export,
+- versioning.
+
+---
+
+6.6 Floating Overlay Runtime
+
+File:
+"OverlayService.kt"
+
+Mandatory:
+
+- TYPE_APPLICATION_OVERLAY
+- Compose overlay UI
+- draggable runtime panel
+- minimized mode
+- FPS meter
+- live detection logs
+- workflow controls
+- panic stop
+- emergency kill switch.
+
+Overlay must:
+
+- not block gameplay input,
+- survive activity changes,
+- remain GPU-lightweight,
+- avoid window leaks.
+
+---
+
+7. ADVANCED SYSTEMS (MANDATORY)
+
+7.1 Plugin System
+
+Implement:
+
+- runtime-loadable macro modules,
+- isolated execution contexts,
+- plugin permission boundaries,
+- dynamic workflow packs.
+
+Support:
+
+/plugins
+  /macro-pack
+  /vision-pack
+  /ocr-pack
+  /workflow-pack
+
+---
+
+7.2 Workflow DSL
+
+Create:
+
+- JSON schema
+  OR
+- Kotlin DSL
+
+Example:
+
+{
+  "state": "battle",
+  "conditions": [
+    {
+      "ocr": "Victory",
+      "action": "collect_reward"
+    }
+  ]
+}
+
+Support:
+
+- nested conditions,
+- retries,
+- probabilistic branching,
+- confidence thresholds.
+
+---
+
+7.3 Telemetry & Debugging
+
+Implement:
+
+- frame debugger,
+- OCR debugger,
+- replay system,
+- gesture timeline,
+- FPS metrics,
+- memory usage graphs,
+- thermal telemetry,
+- execution tracing.
+
+Mandatory:
+
+- structured logs,
+- crash diagnostics,
+- timeline reconstruction.
+
+---
+
+7.4 Crash Recovery & Watchdog
+
+Implement:
+
+- watchdog loop,
+- service auto-recovery,
+- stuck gesture clearing,
+- deadlock detection,
+- coroutine supervisor trees,
+- persistent recovery checkpoints.
+
+---
+
+8. PERFORMANCE ENGINEERING
+
+This section is CRITICAL.
+
+The system must be optimized for:
+
+- continuous execution,
+- long gaming sessions,
+- thermal stability,
+- low-end devices.
+
+Mandatory:
+
+- bitmap pooling,
+- direct buffers,
+- object reuse,
+- zero-allocation hot paths,
+- inference throttling,
+- ROI-only scanning,
+- adaptive FPS scaling.
+
+Forbidden:
+
+- repeated Bitmap.createBitmap loops,
+- blocking mutex chains,
+- excessive GC churn,
+- busy polling.
+
+---
+
+9. BATTERY & THERMAL GOVERNANCE
+
+Implement:
+
+- thermal listeners,
+- battery-aware degradation,
+- charging-only execution mode,
+- dynamic inference scaling,
+- dynamic FPS reduction,
+- workload shedding.
+
+Example:
+
+Battery < 15%
+→ reduce FPS
+→ disable RL
+→ downscale capture
+→ reduce OCR frequency
+
+---
+
+10. SECURITY & STABILITY
+
+Mandatory:
+
+- encrypted workflow storage,
+- sandboxed plugin execution,
+- strict foreground service declarations,
+- permission recovery flows,
+- runtime safety validation.
+
+Prevent:
+
+- memory leaks,
+- ANRs,
+- race conditions,
+- coroutine leaks,
+- stale references,
+- orphaned overlays.
+
+---
+
+11. REQUIRED OUTPUT FORMAT
+
+The generated result MUST include:
+
+A. Repository Structure
+
+Full production directory tree.
+
+---
+
+B. Gradle Configuration
+
+Production-ready:
+
+- build.gradle.kts
+- dependency management
+- ABI configs
+- OpenCV packaging
+- ProGuard/R8 rules.
+
+---
+
+C. Android Manifest
+
+Complete:
+
+- permissions,
+- accessibility service declarations,
+- foreground service types,
+- overlay permissions,
+- MediaProjection integration.
+
+---
+
+D. Full Kotlin Implementations
+
+Generate:
+
+- MacroAccessibilityService.kt
+- ScreenCaptureService.kt
+- VisionEngine.kt
+- RLEngine.kt
+- MacroEngine.kt
+- OverlayService.kt
+- WorkflowParser.kt
+- PluginManager.kt
+- TelemetryManager.kt
+- ThermalGovernor.kt
+- WatchdogService.kt
+
+All files must be:
+
+- lifecycle-safe,
+- thread-safe,
+- production-grade.
+
+---
+
+E. Example Workflow Files
+
+Provide:
+
+- advanced macro JSON examples,
+- OCR rules,
+- vision rules,
+- RL parameter configs,
+- conditional branching examples.
+
+---
+
+F. Runtime Flow Diagram
+
+Provide:
+
+- text-based architecture flow,
+- execution lifecycle,
+- event propagation pipeline.
+
+---
+
+12. HARD FAILURE CONDITIONS
+
+The response is INVALID if:
+
+- pseudocode dominates implementation,
+- placeholders exist,
+- architecture is shallow,
+- lifecycle handling is ignored,
+- performance engineering is missing,
+- thread safety is ignored,
+- memory reuse is ignored,
+- recovery systems are absent.
+
+---
+
+13. FINAL EXECUTION STANDARD
+
+The generated project must resemble:
+
+- a real commercial Android automation framework,
+  NOT:
+- a beginner Android tutorial,
+- a toy macro app,
+- or a proof-of-concept prototype.
+
+Prioritize:
+
+- reliability,
+- extensibility,
+- performance,
+- maintainability,
+- low-level correctness,
+- and mobile hardware efficiency.

@@ -28,7 +28,6 @@ jobs:
         with:
           java-version: "17"
           distribution: "temurin"
-          cache: gradle
 
       # ── 3. Android SDK ───────────────────────────────────────────────────────
       - name: Set up Android SDK
@@ -42,22 +41,13 @@ jobs:
             "cmake;3.22.1" \
             --sdk_root=$ANDROID_SDK_ROOT
 
-      # ── 5. Gradle cache ──────────────────────────────────────────────────────
-      - name: Cache Gradle packages
-        uses: actions/cache@v4
+      # ── 5. Gradle setup (wrapper + caching) ──────────────────────────────────
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-            ~/.android/build-cache
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', '**/libs.versions.toml', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+          gradle-version: wrapper
 
       # ── 6. OpenCV ─────────────────────────────────────────────────────────────
-      # The local opencv.aar is NOT committed (it's 35 MB; see README).
-      # build.gradle.kts automatically falls back to org.opencv:opencv:4.9.0
-      # from Maven Central when the local file is absent — no manual step needed.
       - name: Confirm OpenCV fallback is active
         run: |
           if [ -f "app/libs/opencv.aar" ]; then
@@ -66,17 +56,13 @@ jobs:
             echo "ℹ No local opencv.aar — build.gradle.kts will use org.opencv:opencv:4.9.0 from Maven Central"
           fi
 
-      # ── 7. Gradle wrapper permissions ────────────────────────────────────────
-      - name: Grant execute permission to gradlew
-        run: chmod +x gradlew
-
-      # ── 8. Build ─────────────────────────────────────────────────────────────
+      # ── 7. Build ─────────────────────────────────────────────────────────────
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
         env:
           ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
 
-      # ── 9. Collect APK info ───────────────────────────────────────────────────
+      # ── 8. Collect APK info ───────────────────────────────────────────────────
       - name: Locate APK
         id: apk
         run: |
@@ -86,7 +72,7 @@ jobs:
           echo "size=$SIZE" >> $GITHUB_OUTPUT
           echo "Built APK: $APK ($SIZE)"
 
-      # ── 10. Upload artifact (available on every branch for 30 days) ───────────
+      # ── 9. Upload artifact (available on every branch for 30 days) ───────────
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -95,7 +81,7 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      # ── 11. Build summary ─────────────────────────────────────────────────────
+      # ── 10. Build summary ─────────────────────────────────────────────────────
       - name: Write build summary
         run: |
           echo "## 🤖 TITAN Automation — Debug Build" >> $GITHUB_STEP_SUMMARY
@@ -158,7 +144,6 @@ jobs:
 
             ### ⚠️ This is a debug build
             - Signed with the debug keystore — **not for production**
-            - ApplicationId suffix: `com.titan.automation.debug`
             - For a release APK set `KEYSTORE_PATH`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` secrets
 
             ### 📱 Install
@@ -167,10 +152,7 @@ jobs:
             ```
 
             ### ✅ First-time setup
-            After install, the app will walk you through:
-            1. Enable Accessibility Service
-            2. Grant Display Over Other Apps
-            3. Grant Screen Capture (Android 10 only)
+            After install, enable Accessibility Service → Display Over Other Apps → Screen Capture.
 
             ### 🔧 OpenCV note
             This CI build links against `org.opencv:opencv:4.9.0` (Maven Central).

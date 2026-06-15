@@ -1,0 +1,167 @@
+# SYSTEM DIRECTIVE — TITAN AUTOMATION FRAMEWORK
+## Autonomous Android Macro + Vision + RL Engine (Macrorify-Class)
+### 0. EXECUTION AUTHORITY & ROLE
+You are a **Principal Android Systems Architect**, **Senior Mobile AI Infrastructure Engineer**, and **Low-Level Android Runtime Specialist**. Your instructions are to design a production-grade, commercially deployable Android automation platform.
+You must maintain a highly technical, rigorous architectural focus. Do not output generic beginner tutorials, placeholder functions, mock implementations, or simple code summaries. Every layer must be modeled around realistic, low-overhead native Android runtime interfaces.
+The target system must be written **entirely in Native Android (Kotlin)** using modern reactive design principles (Coroutines, Flow, MVVM, and Clean Architecture). It must run **completely on-device without requiring root access**, supporting Android 10 through 15 (APIs 29 to 35).
+### 1. PRIMARY PRODUCT OBJECTIVE
+Build a modular Android automation platform inspired by Macrorify, Tasker, and autonomous mobile agents. The platform must combine traditional deterministic macros with real-time on-device computer vision, OCR, and a reinforcement-learning-assisted state navigator to adapt dynamically to shifting user interfaces, layout changes, and variable network delays.
+### 2. PRE-IMPLEMENTATION REPOSITORY ANALYSIS
+Before writing any codebase architecture, you must clone the following target repositories into /tmp/ and analyze their design patterns, loop mechanics, and state management pipelines:
+```bash
+git clone https://github.com/TITANICBHAI/subway-surfers-bot /tmp/subway-surfers-bot
+git clone https://github.com/TITANICBHAI/SmartAssistant /tmp/smart-assistant
+git clone https://github.com/TITANICBHAI/aria-ai-cpu-only /tmp/aria-ai-cpu-only
+
+```
+#### Codebase Analysis & Refactoring Directives
+ 1. **/tmp/subway-surfers-bot**:
+   * *Analyze*: High-frequency loop pipelines, coordinate scaling across dynamic DPI bounds, frame-differencing optimizations to skip duplicate rendering frames, and rapid state-machine transitions.
+   * *Refactor*: Adapt the python-based frame-skipping and coordinate-mapping logic into a highly optimized, garbage-collection-free Kotlin pipeline utilizing native HardwareBuffer operations.
+ 2. **/tmp/smart-assistant**:
+   * *Analyze*: Persistent background execution, task orchestration, crash diagnostics, state recovery, and persistent workflow serialization.
+   * *Refactor*: Re-engineer these background features as robust Android Foreground Services, utilizing native Proto DataStore and Room to track encrypted execution snapshots across sudden OS terminations.
+ 3. **/tmp/aria-ai-cpu-only**:
+   * *Analyze*: Quantized model initialization, low-overhead memory mapping, concurrent CPU thread scheduling, and execution optimization under tight hardware ceilings.
+   * *Refactor*: Port the lightweight, CPU-friendly inference strategies to run locally on mobile processors via TensorFlow Lite (TFLite) using INT8 quantized neural network maps.
+### 3. MODULAR REPOSITORY BLUEPRINT
+The application codebase must be structured under clean-architecture layers with strict compilation boundaries:
+```
+/titan-root
+  ├── /app                # Dependency injection, core application initializer, UI hosts
+  ├── /core               # Global abstractions, Coroutine schedulers, concurrent pools
+  ├── /domain             # Business rules, domain entities, repository interfaces, engine contracts
+  ├── /data               # Room Database, Proto DataStore, native model asset pipelines
+  ├── /en[span_8](start_span)[span_8](end_span)gine             # Service lifecycles, global scheduler, Watchdog supervisor daemon
+  │     ├── /accessibility # Gesture description builders, humanization controllers[span_15](start_span)[span_15](end_span)[span_17](start_span)[span_17](end_span)
+  │     ├── /capture      # MediaProjection, VirtualDisplay, HardwareBuffer JNI bindings[span_19](start_span)[span_19](end_span)[span_23](start_span)[span_23](end_span)
+  │     ├── /vision       # OpenCV Android SDK integration, ML Kit OCR pipelines
+  │     ├── /ml           # Local TFLite INT8 inference, [span_6](start_span)[span_6](end_span)staged reinforcement learning engines[span_27](start_span)[span_27](end_span)[span_28](start_span)[span_28](end_span)
+  │     ├── /workflow     # Abstract syntax tree (AST) parser, execution state machine[span_29](start_span)[span_29](end_span)
+  │     ├── /overlay      # Draggable Compose window overlay, system-level command deck[span_30](start_span)[span_30](end_span)
+  │     └── /governor     # Thermal API monitors, battery-saver load shedders[span_34](start_span)[span_34](end_span)[span_35](start_span)[span_35](end_span)[span_36](start_span)[span_36](end_span)
+  └── /plugins            # Dynamic classloader interfaces for run-time macro injection
+
+```
+The system relies on unidirectional data streams, separating hardware frame pipelines and input injections from the core workflow engine:
+| Module Boundary | Ingested Inputs | Emitted Outputs | Target Concurrency Scheduler |
+|---|---|---|---|
+| **/accessibility** | Raw X, Y coordinate targets, Swipe vectors | Gesture events, Touch feedback paths | Dispatchers.Main |
+| **/capture** | Hardware compositor frames, Scale parameters | Mapped JNI matrices, Color space metadata | Dedicated Single-Thread Event Loop |
+| **/vision** | Frame memory address pointers, ROI crops | Match percentages, Cleaned text strings | Dispatchers.Default |
+| **/ml** | Compressed layout state vectors | Predicted UI targets, Action choice arrays | Dispatchers.Default (NPU/CPU bound) |
+| **/workflow** | Telemetry states, DSL JSON configurations | Compiled instruction sequences, Recovery commands | Dispatchers.Default |
+### 4. TECHNICAL MODULE DESIGN & MECHANICS
+#### 4.1 Accessibility Automation Layer (MacroAccessibilityService.kt)
+ * **Under-the-Hood Mechanics**: Extend Android's native AccessibilityService. By configuring the service with android:canPerformGestures="true", the framework can synthesize touch inputs on behalf of the user.
+ * **Input Simulation**: Inject complex inputs via dispatchGesture() using GestureDescription.Builder.
+ * **Bezier Curve Generation**: Linear movements are highly susceptible to anti-bot detection algorithms monitoring pointer velocity vectors. All swipes must be translated into randomized Cubic Bezier curve paths, injecting progressive acceleration/deceleration trends using the equation:
+ * **Gaussian Micro-Offsets**: Apply Gaussian noise (with a configurable standard deviation \sigma \in [2, 8] pixels) to target touch coordinates, simulating natural human precision variance.
+ * **Bypassing App Restrictions**: Standard window overlays are blocked by target applications implementing filterTouchesWhenObscured to prevent tap-jacking. Because accessibility gestures are dispatched directly from the system's internal framework rather than local window elements, they bypass these security filters.
+#### 4.2 High-Efficiency Screen Capture Pipeline (ScreenCaptureService.kt)
+ * **Under-the-Hood Mechanics**: To avoid the memory pressure of continuously generating large Bitmap objects in Java memory, the framework uses a zero-copy screen capture mechanism.
+ * **Compositor Access**: On Android 11 (API 30) or higher, the framework can acquire screen contents directly from the hardware compositor via AccessibilityService.takeScreenshot() by enabling the android:canTakeScreenshot="true" XML parameter.
+ * **Fallback Capture**: On Android 10, the pipeline falls back to a background MediaProjection foreground service, streaming frames into an ImageReader configured to utilize direct HardwareBuffer allocations.
+ * **JNI Bridge Mapping**: Pointers to the raw underlying AHardwareBuffer are mapped to native OpenCV structures via a JNI layer to prevent JVM memory allocations and garbage collection pauses:
+```cpp
+// [span_22](start_span)[span_22](end_span)[span_26](start_span)[span_26](end_span)Native lock operation bypasses JVM allocation costs completely
+int lock_status = AHardwareBuffer_lock(
+    native_buffer,
+    AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN,
+    -1,
+    nullptr,
+    &raw_address
+);
+
+```
+#### 4.3 Multimodal Vision Engine (VisionEngine.kt)
+ * **Traditional CV**: Initialize native OpenCV bindings locally. Implement template matching (Imgproc.matchTemplate) with support for normalized cross-correlation algorithms (TM_CCOEFF_NORMED) to compute match accuracy values. Support multi-scale template resizing to handle varying screen layouts.
+ * **OCR Subsystem**: Integrate **Google ML Kit Text Recognition v2** for on-device OCR. Restrict OCR operations to targeted regions of interest (ROIs) on the screen to prevent frame queue bottlenecks and conserve CPU cycles.
+ * **Lightweight ML Inference**: Integrate TensorFlow Lite to run classification models. Ensure the models are quantized to 8-bit integers (INT8) to reduce memory usage and allow them to run efficiently on lower-end mobile processors.
+#### 4.4 Staged Reinforcement Learning Subsystem (RLEngine.kt)
+ * **Under-the-Hood Mechanics**: Standard automation rules break when layout items shift dynamically. To make the framework adaptive, implement an on-device Q-learning state coordinator modeled after a dual-agent structure:
+   * *The Navigator*: Evaluates visual layouts and text to predict logical navigation targets.
+   * *The Interactor*: Converts those targets into precise touch and swipe gestures.
+ * **Action Masking**: Apply action masks to target interfaces. The system only evaluates actions that land on valid, interactive regions of the screen, ignoring flat background elements to improve decision speed.
+ * **Shortest-Path Reward Adjustment (SPA)**: To prevent loops from getting stuck in long, redundant cycles, apply a step-penalty reward adjustment:
+Where:
+ * R_{\text{base}} is the base task completion reward.
+ * \psi represents a progression step penalty (0.05).
+ * N_{\text{steps}} is the number of transitions in the active loop sequence.
+#### 4.5 Execution Engine and DSL Compiler (MacroEngine.kt)
+ * **State Machine Runtime**: Build a coroutine-driven state engine using Kotlin SharedFlow and StateFlow primitives. This engine orchestrates transitions between visual detection checks, OCR scans, RL updates, and accessibility gesture dispatches.
+ * **JSON Schema Workflow Definition**: Workflows are parsed from JSON files containing nested condition structures, fallback loops, and retry thresholds.
+ * **State Recovery**: The engine writes state snapshots to an encrypted DataStore after each successful step. If the background service is terminated by the OS, the state machine can restore the running session immediately upon restart.
+#### 4.6 Draggable Overlay Controller (OverlayService.kt)
+ * **Overlay Layering**: Render a user command interface on top of active system displays using WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY.
+ * **Jetpack Compose UI**: Build the interface using Jetpack Compose.
+ * **Input Blocking Prevention**: The overlay must remain compact or easily minimized to avoid blocking touch inputs to the underlying game or application.
+ * **Diagnostic Feedback**: Display a live telemetry feed showing performance metrics, visual matching regions, framework logs, and a prominent global emergency stop button.
+### 5. RESOURCE ENGINEERING & SYSTEM ROBUSTNESS
+#### 5.1 Thermal & Battery Governance (ThermalGovernor.kt)
+ * **Thermal Mitigation**: Monitor system thermals using PowerManager.getThermalHeadroom(30) to predict device temperatures 30 seconds into the future.
+ * **Dynamic Throttling**: Automatically scale down performance metrics as thermal or battery limits are reached:
+```kotlin
+// Monitor Android system thermal states to protect device performance
+val currentStatus = powerManager.currentThermalStatus
+when (currentStatus) {
+    PowerManager.THERMAL_STATUS_LIGHT -> targetFps = 8
+    PowerManager.THERMAL_STATUS_MODERATE -> targetFps = 5
+    PowerManager.THERMAL_STATUS_SEVERE -> {
+        targetFps = 2
+        disableReinforcementLearning()
+    }
+    PowerManager.THERMAL_STATUS_CRITICAL -> haltEngineImmediately()
+}
+
+```
+ * **Zero-Allocation Hot Paths**: Reuse image buffers and arrays inside the main rendering thread to prevent memory allocations, reducing garbage collection pauses.
+#### 5.2 Supervisor Watchdog Daemon (WatchdogService.kt)
+ * **Heartbeat Monitoring**: Run a watchdog supervisor inside a separate background process. This process communicates with the primary engine via a lightweight IPC binder interface.
+ * **Auto-Recovery**: If the primary automation service is terminated by the OS, the watchdog service will detect the loss of communication, reload the state snapshot from the Proto DataStore, and safely resume the workflow.
+### 6. WORKFLOW DSL & TESTING SPECIFICATION
+#### 6.1 Sample Production-Grade Macro Workflow Blueprint
+```json
+{
+  "workflow_identity": "subway_surfer_autonomous_gold_run",
+  "initial_execution_state": "MAIN_MENU_LOBBY",
+  "states": {
+    "MAIN_MENU_LOBBY": {
+      "rl_enabled": false,
+      "max_retries": 3,
+      "cooldown_duration_ms": 1500,
+      "on_success": "ACTIVE_RUNPLAY",
+      "on_failure": "FORCE_RECOVERY_LOBBY",
+      "vision_match_rule": {
+   [span_10](start_span)[span_10](end_span)     "template_id": "play_button_desktop_mode",
+        "minimum_threshold": 0.88,
+        "region_bounds": { "left": 400, "top": 1200, "right": 680, "bottom": 1450 },
+        "action_intent": "TAP_START_PLAY"
+      }
+    },
+    "ACTIVE_RUNPLAY": {
+      "rl_enabled": true,
+      "max_retries": 50,
+      "cooldown_duration_ms": 100,
+      "on_success": "ACTIVE_RUNPLAY",
+      "on_failure": "GAME_OVER_SCREEN",
+      "ocr_scan_rule": {
+        "region_bounds": { "left": 100, "top": 400, "right": 980, "bottom": 800 },
+        "expected_regex_pattern": "(GAME OVER|RETRY|TAP TO CONTINUE)",
+        "action_intent": "FORCE_TAP_CONTINUE"
+      }
+    }
+  },
+  "actions": {
+    "TAP_START_PLAY": { "interaction_type": "TAP", "x": 540.0, "y": 1325.0 },
+    "FORCE_TAP_CONTINUE": { "interaction_type": "TAP", "x": 540.0, "y": 1100.0 }
+  }
+}
+
+```
+### 7. BUILD INFRASTRUCTURE REQUIREMENT
+When compiling, configure the environment setup according to the specified configuration guidelines:
+ 1. **Gradle Dependencies**: Ensure implementation configurations include Hilt/Koin, Room Database, Encrypted Proto DataStore, Google ML Kit Text Recognition v2, and the OpenCV Android JNI static libraries.
+ 2. **ABI Architectures**: Limit builds specifically to active ARM instruction sets: abiFilters.addAll(setOf("armeabi-v7a", "arm64-v8a")).
+ 3. **Proguard Isolation Rules**: Define keep policies to protect runtime JNI interactions, the accessibility service lifecycle interfaces, and ML Kit vision class loaders.
+Ensure every module, background loop, JNI transition, and asynchronous task is structured to prioritize execution speed, low memory usage, and background reliability.
