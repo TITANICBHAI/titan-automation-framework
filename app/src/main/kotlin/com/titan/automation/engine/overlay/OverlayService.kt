@@ -154,7 +154,7 @@ class OverlayService : Service() {
                     is TitanEvent.OcrResult     -> addLog("[OCR] ${event.text.take(60)}")
                     is TitanEvent.RLDecision    -> addLog("[RL] ${event.action} Q=${event.qValue.fmt(2)} ε=${event.epsilon.fmt(3)}")
                     is TitanEvent.GestureDispatched ->
-                        addLog("[GESTURE] ${event.type} (${event.x.toInt()},${event.y.toInt()}) ok=${event.success}")
+                        addLog("[GESTURE] ${event.type} (${(event.x*100).toInt()}%,${(event.y*100).toInt()}%) ok=${event.success}")
                     is TitanEvent.Error         -> addLog("[ERR] ${event.source}: ${event.message}")
                     else -> Unit
                 }
@@ -374,7 +374,11 @@ class OverlayService : Service() {
 
                                     // DOT toggle — show/hide tap dots during playback
                                     FilledTonalIconButton(
-                                        onClick  = { showDots.value = !dotsOn },
+                                        onClick  = {
+                                            val next = !dotsOn
+                                            showDots.value = next
+                                            simplePlayback.runtimeShowDots = next
+                                        },
                                         modifier = Modifier.size(36.dp),
                                         colors   = IconButtonDefaults.filledTonalIconButtonColors(
                                             containerColor = if (dotsOn) Color(0xFF1A2A1A) else Color(0xFF263238)

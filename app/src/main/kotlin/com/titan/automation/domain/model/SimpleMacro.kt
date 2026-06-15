@@ -23,31 +23,47 @@ data class SimpleMacro(
 data class SimpleAction(
     val id: String,
     val type: SimpleActionType,
-    val x: Float = 0.5f,          // normalized [0..1]
+    val x: Float = 0.5f,                   // normalized [0..1]
     val y: Float = 0.5f,
-    val endX: Float = 0.5f,       // SWIPE end point
+    val endX: Float = 0.5f,                // SWIPE end point
     val endY: Float = 0.5f,
-    val durationMs: Long = 100L,   // hold duration (tap/long-press/swipe)
-    val delayAfterMs: Long = 300L, // pause after this action before next
-    val label: String = ""
+    val durationMs: Long = 100L,            // hold duration (tap/long-press/swipe) or wait ms
+    val delayAfterMs: Long = 300L,          // pause after this action before next
+    val label: String = "",
+    // ── Conditional fields (WAIT_FOR_IMAGE / WAIT_FOR_OCR_TEXT) ──────────────
+    val templateId: String = "",            // template asset ID for WAIT_FOR_IMAGE
+    val minConfidence: Float = 0.80f,       // minimum match confidence
+    val ocrPattern: String = "",            // text to search for (contains, case-insensitive)
+    val ocrRegionX: Float = 0f,            // OCR/image scan region (normalized, 0 = full screen)
+    val ocrRegionY: Float = 0f,
+    val ocrRegionW: Float = 1f,
+    val ocrRegionH: Float = 1f,
+    val conditionTimeoutMs: Long = 15_000L, // fail-safe timeout for conditional steps
+    val tapWhenFound: Boolean = false       // WAIT_FOR_IMAGE: also tap the matched location
 )
 
 @Serializable
 enum class SimpleActionType {
-    TAP, LONG_PRESS, SWIPE, WAIT;
+    TAP, LONG_PRESS, SWIPE, WAIT,
+    WAIT_FOR_IMAGE,    // pause until a template appears on screen (VisionEngine)
+    WAIT_FOR_OCR_TEXT; // pause until OCR finds matching text on screen
 
     fun displayName() = when (this) {
-        TAP         -> "Tap"
-        LONG_PRESS  -> "Long Press"
-        SWIPE       -> "Swipe"
-        WAIT        -> "Wait"
+        TAP              -> "Tap"
+        LONG_PRESS       -> "Long Press"
+        SWIPE            -> "Swipe"
+        WAIT             -> "Wait"
+        WAIT_FOR_IMAGE   -> "Wait for Image"
+        WAIT_FOR_OCR_TEXT -> "Wait for Text"
     }
 
     fun emoji() = when (this) {
-        TAP         -> "👆"
-        LONG_PRESS  -> "✋"
-        SWIPE       -> "👉"
-        WAIT        -> "⏱"
+        TAP              -> "👆"
+        LONG_PRESS       -> "✋"
+        SWIPE            -> "👉"
+        WAIT             -> "⏱"
+        WAIT_FOR_IMAGE   -> "👁"
+        WAIT_FOR_OCR_TEXT -> "🔤"
     }
 }
 
@@ -59,8 +75,27 @@ data class PlaybackConfig(
     val speedMultiplier: Float = 1.0f,             // 0.25x – 4x; applied to delayAfterMs
     val jitterEnabled: Boolean = true,             // random ±N px offset per tap
     val jitterRadiusPx: Float = 3f,               // σ for Gaussian noise
-    val showTapDots: Boolean = true               // show visual circles at tap points
+    val showTapDots: Boolean = true,              // show visual circles at tap points
+    val respectThermal: Boolean = true,           // pause when device thermal is CRITICAL
+    val scheduleMode: ScheduleMode = ScheduleMode.MANUAL,
+    val scheduleIntervalMs: Long = 0L,            // interval in ms (INTERVAL/REPEAT modes)
+    val scheduleRepeatCount: Int = 1              // number of runs (REPEAT mode)
 )
+
+@Serializable
+enum class ScheduleMode {
+    MANUAL,   // only starts when user taps play
+    ONCE,     // auto-start once after delay
+    INTERVAL, // auto-start every N ms
+    REPEAT;   // auto-start N times with interval
+
+    fun displayName() = when (this) {
+        MANUAL   -> "Manual only"
+        ONCE     -> "Run once (delayed)"
+        INTERVAL -> "Repeat every N seconds"
+        REPEAT   -> "Repeat N times"
+    }
+}
 
 @Serializable
 enum class LoopMode {

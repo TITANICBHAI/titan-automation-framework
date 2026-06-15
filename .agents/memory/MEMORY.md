@@ -1,0 +1,5 @@
+- [Android project structure](android-structure.md) — project root IS the Android root (not titan-automation/ subdir); app/build.gradle.kts at root level. Never run pnpm dev.
+- [TitanEvent fields](titan-event-fields.md) — GestureDispatched has (type: String, x: Float, y: Float, success: Boolean); x/y are normalized [0..1], not pixels.
+- [GovernorState fields](governor-state.md) — GovernorState has thermalLevel: ThermalLevel (NOT .level), targetFps: Int, rlEnabled: Boolean; ThermalLevel enum: NORMAL/LIGHT/MODERATE/SEVERE/CRITICAL.
+- [ScheduleMode location](schedule-mode.md) — ScheduleMode enum lives in SimpleMacro.kt (domain model), NOT in MacroScheduler.kt. MacroScheduler imports it from domain.
+- [WorkflowDataStore keys](datastore-keys.md) — All new macro-default keys already defined: DEFAULT_SHOW_DOTS, DEFAULT_JITTER_ENABLED, DEFAULT_JITTER_RADIUS, DEFAULT_SPEED, RESPECT_THERMAL, TOUCH_NOISE_STDDEV.

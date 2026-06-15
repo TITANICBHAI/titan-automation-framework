@@ -36,6 +36,7 @@ import com.titan.automation.engine.capture.ScreenCaptureService
 import com.titan.automation.engine.overlay.OverlayService
 import com.titan.automation.ui.builder.MacroBuilderScreen
 import com.titan.automation.ui.builder.MacroBuilderViewModel
+import com.titan.automation.ui.builder.TitanSettingsViewModel
 import com.titan.automation.engine.workflow.MacroEngine
 import com.titan.automation.engine.workflow.WorkflowParser
 import com.titan.automation.events.TitanEvent
@@ -55,9 +56,10 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: MainViewModel          by viewModels()
-    private val permViewModel: PermissionViewModel by viewModels()
+    private val viewModel: MainViewModel               by viewModels()
+    private val permViewModel: PermissionViewModel     by viewModels()
     private val builderViewModel: MacroBuilderViewModel by viewModels()
+    private val settingsViewModel: TitanSettingsViewModel by viewModels()
 
     // MediaProjection permission (API 29 screen capture)
     private val projectionLauncher = registerForActivityResult(
@@ -81,9 +83,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 RootScreen(
-                    viewModel       = viewModel,
-                    permViewModel   = permViewModel,
-                    builderViewModel = builderViewModel,
+                    viewModel        = viewModel,
+                    permViewModel    = permViewModel,
+                    builderViewModel  = builderViewModel,
+                    settingsViewModel = settingsViewModel,
                     onRequestOverlay       = ::requestOverlayPermission,
                     onRequestAccessibility = ::openAccessibilitySettings,
                     onRequestProjection    = ::requestMediaProjection,
@@ -198,6 +201,7 @@ private fun RootScreen(
     viewModel: MainViewModel,
     permViewModel: PermissionViewModel,
     builderViewModel: MacroBuilderViewModel,
+    settingsViewModel: TitanSettingsViewModel,
     onRequestOverlay: () -> Unit,
     onRequestAccessibility: () -> Unit,
     onRequestProjection: () -> Unit,
@@ -215,12 +219,13 @@ private fun RootScreen(
     ) { allGranted ->
         if (allGranted) {
             TitanApp(
-                viewModel            = viewModel,
-                builderViewModel     = builderViewModel,
-                permissions          = permissions,
-                onRequestOverlay     = onRequestOverlay,
+                viewModel              = viewModel,
+                builderViewModel       = builderViewModel,
+                settingsViewModel      = settingsViewModel,
+                permissions            = permissions,
+                onRequestOverlay       = onRequestOverlay,
                 onRequestAccessibility = onRequestAccessibility,
-                onRequestProjection  = onRequestProjection
+                onRequestProjection    = onRequestProjection
             )
         } else {
             OnboardingScreen(
@@ -471,6 +476,7 @@ private fun PermissionStepCard(stepNumber: Int, step: OnboardingStep) {
 private fun TitanApp(
     viewModel: MainViewModel,
     builderViewModel: MacroBuilderViewModel,
+    settingsViewModel: TitanSettingsViewModel,
     permissions: PermissionState,
     onRequestOverlay: () -> Unit,
     onRequestAccessibility: () -> Unit,
@@ -538,11 +544,12 @@ private fun TitanApp(
                 )
             2 -> LiveLogTab(events = events, modifier = Modifier.padding(padding))
             3 -> SettingsTab(
-                    permissions         = permissions,
-                    onRequestProjection = onRequestProjection,
-                    onRequestOverlay    = onRequestOverlay,
+                    permissions            = permissions,
+                    settingsViewModel      = settingsViewModel,
+                    onRequestProjection    = onRequestProjection,
+                    onRequestOverlay       = onRequestOverlay,
                     onRequestAccessibility = onRequestAccessibility,
-                    modifier = Modifier.padding(padding)
+                    modifier               = Modifier.padding(padding)
                 )
         }
     }
@@ -762,71 +769,294 @@ private fun logEntryColor(entry: String): Color = when {
 @Composable
 private fun SettingsTab(
     permissions: PermissionState,
+    settingsViewModel: TitanSettingsViewModel,
     onRequestProjection: () -> Unit,
     onRequestOverlay: () -> Unit,
     onRequestAccessibility: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val rlEnabled      by settingsViewModel.rlEnabled.collectAsStateWithLifecycle()
+    val captureFps     by settingsViewModel.captureFps.collectAsStateWithLifecycle()
+    val showDots       by settingsViewModel.defaultShowDots.collectAsStateWithLifecycle()
+    val jitter         by settingsViewModel.defaultJitterEnabled.collectAsStateWithLifecycle()
+    val jitterRadius   by settingsViewModel.defaultJitterRadius.collectAsStateWithLifecycle()
+    val speed          by settingsViewModel.defaultSpeed.collectAsStateWithLifecycle()
+    val respectThermal by settingsViewModel.respectThermal.collectAsStateWithLifecycle()
+    val touchNoise     by settingsViewModel.touchNoiseStdDev.collectAsStateWithLifecycle()
+    val thermal        by settingsViewModel.thermalState.collectAsStateWithLifecycle()
+    val scheduled      by settingsViewModel.scheduledJobs.collectAsStateWithLifecycle()
+
+    val SURFACE  = Color(0xFF161B22)
+    val BORDER   = Color(0xFF30363D)
+    val CYAN     = Color(0xFF00E5FF)
+    val GREEN    = Color(0xFF69F0AE)
+    val AMBER    = Color(0xFFFFB300)
+    val RED      = Color(0xFFF44336)
+    val MUTED    = Color(0xFF8B949E)
+
     Column(
-        modifier            = modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Permissions", fontWeight = FontWeight.Bold, color = Color(0xFF00E5FF), fontSize = 14.sp)
+        // ── Permissions ───────────────────────────────────────────────────────
+        Text("Permissions", fontWeight = FontWeight.Bold, color = CYAN, fontSize = 13.sp)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = SURFACE),
+            border = BorderStroke(1.dp, BORDER)
+        ) {
+            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                SettingsPermissionRow("Accessibility Service",
+                    permissions.accessibilityGranted, onRequestAccessibility, accentColor = CYAN)
+                HorizontalDivider(color = BORDER, modifier = Modifier.padding(horizontal = 16.dp))
+                SettingsPermissionRow("Display Over Other Apps",
+                    permissions.overlayGranted, onRequestOverlay, accentColor = CYAN)
+                HorizontalDivider(color = BORDER, modifier = Modifier.padding(horizontal = 16.dp))
+                SettingsPermissionRow("Screen Capture",
+                    permissions.projectionGranted || Build.VERSION.SDK_INT >= Build.VERSION_CODES.R,
+                    onRequestProjection, accentColor = CYAN)
+            }
+        }
 
-        SettingsPermissionRow(
-            label   = "Accessibility Service",
-            granted = permissions.accessibilityGranted,
-            onClick = onRequestAccessibility
-        )
-        SettingsPermissionRow(
-            label   = "Display Over Other Apps",
-            granted = permissions.overlayGranted,
-            onClick = onRequestOverlay
-        )
-        SettingsPermissionRow(
-            label   = "Screen Capture (API 29 only)",
-            granted = permissions.projectionGranted || Build.VERSION.SDK_INT >= Build.VERSION_CODES.R,
-            onClick = onRequestProjection
-        )
+        // ── Capture + Vision ──────────────────────────────────────────────────
+        Text("Capture & Vision", fontWeight = FontWeight.Bold, color = CYAN, fontSize = 13.sp)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = SURFACE),
+            border = BorderStroke(1.dp, BORDER)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                SettingsSliderRow(
+                    label    = "Frame rate: $captureFps fps",
+                    value    = captureFps.toFloat(),
+                    range    = 1f..30f,
+                    steps    = 28,
+                    color    = CYAN,
+                    onChange = { settingsViewModel.setCaptureFps(it.toInt()) }
+                )
+                HorizontalDivider(color = BORDER)
+                SettingsToggleRow(
+                    label    = "Reinforcement learning (Q-learning)",
+                    sub      = "AI adapts gesture decisions at runtime",
+                    checked  = rlEnabled,
+                    color    = CYAN,
+                    onChange = settingsViewModel::setRlEnabled
+                )
+            }
+        }
 
-        Spacer(Modifier.height(8.dp))
-        HorizontalDivider(color = Color(0xFF21262D))
-        Spacer(Modifier.height(8.dp))
+        // ── Macro defaults ────────────────────────────────────────────────────
+        Text("Macro defaults", fontWeight = FontWeight.Bold, color = CYAN, fontSize = 13.sp)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = SURFACE),
+            border = BorderStroke(1.dp, BORDER)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                SettingsToggleRow(
+                    label    = "Show tap dots",
+                    sub      = "Visual circles overlaid at each tap point",
+                    checked  = showDots,
+                    color    = CYAN,
+                    onChange = settingsViewModel::setDefaultShowDots
+                )
+                HorizontalDivider(color = BORDER)
+                SettingsToggleRow(
+                    label    = "Anti-detection jitter",
+                    sub      = "Random offset added to every tap",
+                    checked  = jitter,
+                    color    = CYAN,
+                    onChange = settingsViewModel::setDefaultJitterEnabled
+                )
+                if (jitter) {
+                    SettingsSliderRow(
+                        label    = "Jitter radius: ${jitterRadius.toInt()}px",
+                        value    = jitterRadius,
+                        range    = 1f..15f,
+                        steps    = 13,
+                        color    = CYAN,
+                        onChange = settingsViewModel::setDefaultJitterRadius
+                    )
+                }
+                HorizontalDivider(color = BORDER)
+                SettingsSliderRow(
+                    label    = "Default speed: ${speed}x",
+                    value    = speed,
+                    range    = 0.25f..4f,
+                    steps    = 14,
+                    color    = AMBER,
+                    onChange = settingsViewModel::setDefaultSpeed
+                )
+                HorizontalDivider(color = BORDER)
+                SettingsToggleRow(
+                    label    = "Pause on thermal throttle",
+                    sub      = "Halts macros when device overheats",
+                    checked  = respectThermal,
+                    color    = AMBER,
+                    onChange = settingsViewModel::setRespectThermal
+                )
+                HorizontalDivider(color = BORDER)
+                SettingsSliderRow(
+                    label    = "Touch-noise σ: ${touchNoise.toInt()}px",
+                    value    = touchNoise,
+                    range    = 0f..10f,
+                    steps    = 9,
+                    color    = MUTED,
+                    onChange = settingsViewModel::setTouchNoise
+                )
+            }
+        }
 
-        Text("About", fontWeight = FontWeight.Bold, color = Color(0xFF00E5FF), fontSize = 14.sp)
+        // ── Thermal monitor ───────────────────────────────────────────────────
+        Text("Thermal monitor", fontWeight = FontWeight.Bold, color = CYAN, fontSize = 13.sp)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = SURFACE),
+            border = BorderStroke(1.dp, when (thermal.thermalLevel.ordinal) {
+                in 3..4 -> RED.copy(alpha = 0.6f)
+                2       -> AMBER.copy(alpha = 0.6f)
+                else    -> BORDER
+            })
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Level: ${thermal.thermalLevel.name}",
+                        color      = when (thermal.thermalLevel.ordinal) {
+                            in 3..4 -> RED
+                            2       -> AMBER
+                            else    -> GREEN
+                        },
+                        fontWeight = FontWeight.SemiBold, fontSize = 14.sp
+                    )
+                    Text("Target: ${thermal.targetFps} fps  |  RL: ${if (thermal.rlEnabled) "on" else "off"}",
+                        color = MUTED, fontSize = 11.sp)
+                }
+                Icon(
+                    if (thermal.thermalLevel.ordinal >= 3) Icons.Default.Warning else Icons.Default.CheckCircle,
+                    null,
+                    tint     = if (thermal.thermalLevel.ordinal >= 3) RED else MUTED,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
 
-        Text(
-            "TITAN Automation Framework\n" +
-            "OpenCV · ML Kit OCR · TFLite · Q-Learning RL\n\n" +
-            "All processing is 100% on-device.\n" +
-            "No network access. No data leaves your phone.",
-            fontSize    = 12.sp,
-            color       = Color(0xFF546E7A),
-            lineHeight  = 18.sp
+        // ── Scheduled jobs ────────────────────────────────────────────────────
+        if (scheduled.isNotEmpty()) {
+            Text("Active schedules (${scheduled.size})", fontWeight = FontWeight.Bold, color = AMBER, fontSize = 13.sp)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SURFACE),
+                border = BorderStroke(1.dp, AMBER.copy(alpha = 0.4f))
+            ) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    scheduled.values.forEachIndexed { i, job ->
+                        Row(
+                            modifier          = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(job.macroName, color = Color.White, fontSize = 13.sp)
+                                Text(job.progressLabel, color = AMBER.copy(alpha = 0.8f), fontSize = 10.sp)
+                            }
+                            IconButton(
+                                onClick  = { settingsViewModel.cancelAllSchedules() },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(Icons.Default.Close, "Cancel", tint = MUTED, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                        if (i < scheduled.size - 1) HorizontalDivider(color = BORDER, modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+                }
+            }
+        }
+
+        // ── About ─────────────────────────────────────────────────────────────
+        Text("About", fontWeight = FontWeight.Bold, color = CYAN, fontSize = 13.sp)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = SURFACE),
+            border = BorderStroke(1.dp, BORDER)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("TITAN Automation Framework", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text("OpenCV · ML Kit OCR · TFLite · Q-Learning RL",
+                    color = MUTED, fontSize = 12.sp)
+                Text("All processing is 100% on-device.\nNo network access. No data leaves your phone.",
+                    color = MUTED.copy(alpha = 0.7f), fontSize = 12.sp, lineHeight = 18.sp)
+            }
+        }
+
+        Spacer(Modifier.height(32.dp))
+    }
+}
+
+@Composable
+private fun SettingsToggleRow(
+    label: String,
+    sub: String,
+    checked: Boolean,
+    color: Color,
+    onChange: (Boolean) -> Unit
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, color = Color(0xFFE6EDF3), fontSize = 14.sp)
+            Text(sub, color = Color(0xFF8B949E), fontSize = 11.sp)
+        }
+        Switch(
+            checked         = checked,
+            onCheckedChange = onChange,
+            colors          = SwitchDefaults.colors(
+                checkedThumbColor  = color,
+                checkedTrackColor  = color.copy(alpha = 0.4f)
+            )
         )
     }
 }
 
 @Composable
-private fun SettingsPermissionRow(label: String, granted: Boolean, onClick: () -> Unit) {
+private fun SettingsSliderRow(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    color: Color,
+    onChange: (Float) -> Unit
+) {
+    Column {
+        Text(label, color = Color(0xFF8B949E), fontSize = 12.sp)
+        Slider(
+            value         = value,
+            onValueChange = onChange,
+            valueRange    = range,
+            steps         = steps,
+            colors        = SliderDefaults.colors(thumbColor = color, activeTrackColor = color)
+        )
+    }
+}
+
+@Composable
+private fun SettingsPermissionRow(label: String, granted: Boolean, onClick: () -> Unit, accentColor: Color = Color(0xFF00E5FF)) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = !granted, onClick = onClick)
-            .padding(vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, color = Color(0xFFE6EDF3), fontSize = 13.sp)
+        Text(label, color = Color(0xFFE6EDF3), fontSize = 13.sp, modifier = Modifier.weight(1f))
         if (granted) {
             Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF69F0AE), modifier = Modifier.size(20.dp))
         } else {
             OutlinedButton(
                 onClick = onClick,
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f))
+                border = BorderStroke(1.dp, accentColor.copy(alpha = 0.5f))
             ) {
-                Text("Grant", color = Color(0xFF00E5FF), fontSize = 12.sp)
+                Text("Grant", color = accentColor, fontSize = 12.sp)
             }
         }
     }

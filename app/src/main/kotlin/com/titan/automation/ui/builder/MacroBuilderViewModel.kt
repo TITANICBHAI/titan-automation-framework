@@ -4,11 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.titan.automation.domain.model.LoopMode
 import com.titan.automation.domain.model.PlaybackConfig
+import com.titan.automation.domain.model.ScheduleMode
 import com.titan.automation.domain.model.SimpleAction
 import com.titan.automation.domain.model.SimpleActionType
 import com.titan.automation.domain.model.SimpleMacro
 import com.titan.automation.domain.repository.SimpleMacroRepository
 import com.titan.automation.engine.overlay.CoordinatePicker
+import com.titan.automation.engine.playback.MacroScheduler
+import com.titan.automation.engine.playback.ScheduledJob
 import com.titan.automation.engine.playback.SimplePlaybackEngine
 import com.titan.automation.engine.recorder.TouchRecorder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,16 +21,21 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
 class MacroBuilderViewModel @Inject constructor(
-    private val repository   : SimpleMacroRepository,
-    private val touchRecorder: TouchRecorder,
-    private val playbackEngine: SimplePlaybackEngine,
-    private val coordinatePicker: CoordinatePicker
+    private val repository      : SimpleMacroRepository,
+    private val touchRecorder   : TouchRecorder,
+    private val playbackEngine  : SimplePlaybackEngine,
+    private val coordinatePicker: CoordinatePicker,
+    private val macroScheduler  : MacroScheduler
 ) : ViewModel() {
+
+    private val exportJson = Json { prettyPrint = true; encodeDefaults = true }
 
     // ── Macro list ────────────────────────────────────────────────────────────
 
@@ -41,18 +49,24 @@ class MacroBuilderViewModel @Inject constructor(
 
     // ── Recording ─────────────────────────────────────────────────────────────
 
-    val isRecording: StateFlow<Boolean> = touchRecorder.isRecording
-    val recordedCount: StateFlow<Int>   = touchRecorder.recordedCount
+    val isRecording  : StateFlow<Boolean> = touchRecorder.isRecording
+    val recordedCount: StateFlow<Int>     = touchRecorder.recordedCount
 
     // ── Playback ──────────────────────────────────────────────────────────────
 
-    val isPlaying: StateFlow<Boolean>      = playbackEngine.isPlaying
-    val currentMacroName: StateFlow<String?> = playbackEngine.currentMacroName
-    val completedLoops: StateFlow<Int>     = playbackEngine.completedLoops
+    val isPlaying        : StateFlow<Boolean>  = playbackEngine.isPlaying
+    val currentMacroName : StateFlow<String?>  = playbackEngine.currentMacroName
+    val completedLoops   : StateFlow<Int>      = playbackEngine.completedLoops
+    val currentStepIndex : StateFlow<Int>      = playbackEngine.currentStepIndex
+
+    // ── Scheduler ─────────────────────────────────────────────────────────────
+
+    val scheduledJobs: StateFlow<Map<String, ScheduledJob>> = macroScheduler.scheduled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     // ── Picker ────────────────────────────────────────────────────────────────
 
-    val isPickerActive: StateFlow<Boolean>              = coordinatePicker.isActive
+    val isPickerActive: StateFlow<Boolean>                           = coordinatePicker.isActive
     private val _pendingPickTarget = MutableStateFlow<String?>(null) // action id awaiting pick
     val pendingPickTarget: StateFlow<String?> = _pendingPickTarget.asStateFlow()
 
@@ -60,7 +74,6 @@ class MacroBuilderViewModel @Inject constructor(
     val pickerResultForAction: StateFlow<Pair<String, Pair<Float,Float>>?> = _pickerResultForAction.asStateFlow()
 
     init {
-        // Listen for picker results and route them back to the editing action
         viewModelScope.launch {
             coordinatePicker.pickerResult.collect { result ->
                 val actionId = _pendingPickTarget.value ?: return@collect
@@ -98,6 +111,7 @@ class MacroBuilderViewModel @Inject constructor(
     }
 
     fun deleteMacro(id: String) {
+        macroScheduler.cancel(id)
         if (_editingMacro.value?.id == id) _editingMacro.value = null
         viewModelScope.launch { repository.deleteMacro(id) }
     }
@@ -130,8 +144,35 @@ class MacroBuilderViewModel @Inject constructor(
 
     fun updatePlaybackConfig(config: PlaybackConfig) {
         val current = _editingMacro.value ?: return
-        saveMacro(current.copy(playbackConfig = config))
+        val updated = current.copy(playbackConfig = config)
+        _editingMacro.value = updated
+        viewModelScope.launch {
+            repository.saveMacro(updated)
+            applySchedule(updated)
+        }
     }
+
+    // ── Schedule ──────────────────────────────────────────────────────────────
+
+    private fun applySchedule(macro: SimpleMacro) {
+        val cfg = macro.playbackConfig
+        when (cfg.scheduleMode) {
+            ScheduleMode.MANUAL   -> macroScheduler.cancel(macro.id)
+            ScheduleMode.ONCE     -> macroScheduler.scheduleOnce(macro,
+                cfg.scheduleIntervalMs.coerceAtLeast(1_000L))
+            ScheduleMode.INTERVAL -> macroScheduler.scheduleInterval(macro,
+                cfg.scheduleIntervalMs.coerceAtLeast(1_000L))
+            ScheduleMode.REPEAT   -> macroScheduler.scheduleRepeat(macro,
+                cfg.scheduleRepeatCount.coerceAtLeast(1),
+                cfg.scheduleIntervalMs.coerceAtLeast(1_000L))
+        }
+    }
+
+    fun cancelSchedule(macroId: String) {
+        macroScheduler.cancel(macroId)
+    }
+
+    fun isScheduled(macroId: String) = macroScheduler.isScheduled(macroId)
 
     // ── Recording ─────────────────────────────────────────────────────────────
 
@@ -160,6 +201,15 @@ class MacroBuilderViewModel @Inject constructor(
         playbackEngine.stop()
     }
 
+    // ── Export ────────────────────────────────────────────────────────────────
+
+    fun exportMacroJson(macro: SimpleMacro): String =
+        exportJson.encodeToString(macro)
+
+    fun clearExportedJson() {
+        _exportedJson.value = null
+    }
+
     // ── Coordinate picker ─────────────────────────────────────────────────────
 
     fun requestCoordinatePick(forActionId: String) {
@@ -173,10 +223,31 @@ class MacroBuilderViewModel @Inject constructor(
 
     // ── Quick action builders ─────────────────────────────────────────────────
 
-    fun buildNewTap()       = SimpleAction(UUID.randomUUID().toString(), SimpleActionType.TAP,        label = "Tap")
-    fun buildNewLongPress() = SimpleAction(UUID.randomUUID().toString(), SimpleActionType.LONG_PRESS, durationMs = 600L, label = "Long Press")
-    fun buildNewSwipe()     = SimpleAction(UUID.randomUUID().toString(), SimpleActionType.SWIPE,      label = "Swipe")
-    fun buildNewWait()      = SimpleAction(UUID.randomUUID().toString(), SimpleActionType.WAIT,       durationMs = 1000L, delayAfterMs = 0L, label = "Wait 1s")
+    fun buildNewTap() = SimpleAction(
+        UUID.randomUUID().toString(), SimpleActionType.TAP,
+        label = "Tap"
+    )
+    fun buildNewLongPress() = SimpleAction(
+        UUID.randomUUID().toString(), SimpleActionType.LONG_PRESS,
+        durationMs = 600L, label = "Long Press"
+    )
+    fun buildNewSwipe() = SimpleAction(
+        UUID.randomUUID().toString(), SimpleActionType.SWIPE,
+        label = "Swipe"
+    )
+    fun buildNewWait() = SimpleAction(
+        UUID.randomUUID().toString(), SimpleActionType.WAIT,
+        durationMs = 1000L, delayAfterMs = 0L, label = "Wait 1s"
+    )
+    fun buildNewWaitForImage() = SimpleAction(
+        UUID.randomUUID().toString(), SimpleActionType.WAIT_FOR_IMAGE,
+        templateId = "", conditionTimeoutMs = 15_000L, label = "Wait for Image"
+    )
+    fun buildNewWaitForOcrText() = SimpleAction(
+        UUID.randomUUID().toString(), SimpleActionType.WAIT_FOR_OCR_TEXT,
+        ocrPattern = "", conditionTimeoutMs = 15_000L, label = "Wait for Text"
+    )
 
-    fun loopModeOptions() = LoopMode.values().toList()
+    fun loopModeOptions()     = LoopMode.values().toList()
+    fun scheduleModeOptions() = ScheduleMode.values().toList()
 }
