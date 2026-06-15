@@ -5,12 +5,14 @@ import androidx.room.Room
 import com.titan.automation.core.TitanCoroutineScopes
 import com.titan.automation.core.TitanDispatchers
 import com.titan.automation.data.db.MacroDatabase
+import com.titan.automation.data.repository.SimpleMacroRepositoryImpl
 import com.titan.automation.data.repository.WorkflowRepositoryImpl
 import com.titan.automation.data.store.WorkflowDataStore
 import com.titan.automation.debug.DebugSession
 import com.titan.automation.debug.ExecutionTracer
 import com.titan.automation.debug.FrameDebugger
 import com.titan.automation.debug.GestureTimeline
+import com.titan.automation.domain.repository.SimpleMacroRepository
 import com.titan.automation.domain.repository.WorkflowRepository
 import com.titan.automation.engine.workflow.WorkflowParser
 import com.titan.automation.performance.BatteryMonitor
@@ -46,6 +48,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindWorkflowRepository(impl: WorkflowRepositoryImpl): WorkflowRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSimpleMacroRepository(impl: SimpleMacroRepositoryImpl): SimpleMacroRepository
 }
 
 // ── Workflow infrastructure ───────────────────────────────────────────────────

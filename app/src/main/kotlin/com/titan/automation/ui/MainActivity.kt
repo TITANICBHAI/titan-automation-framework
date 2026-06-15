@@ -34,6 +34,8 @@ import com.titan.automation.domain.model.WorkflowDefinition
 import com.titan.automation.domain.repository.WorkflowRepository
 import com.titan.automation.engine.capture.ScreenCaptureService
 import com.titan.automation.engine.overlay.OverlayService
+import com.titan.automation.ui.builder.MacroBuilderScreen
+import com.titan.automation.ui.builder.MacroBuilderViewModel
 import com.titan.automation.engine.workflow.MacroEngine
 import com.titan.automation.engine.workflow.WorkflowParser
 import com.titan.automation.events.TitanEvent
@@ -53,8 +55,9 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: MainViewModel       by viewModels()
+    private val viewModel: MainViewModel          by viewModels()
     private val permViewModel: PermissionViewModel by viewModels()
+    private val builderViewModel: MacroBuilderViewModel by viewModels()
 
     // MediaProjection permission (API 29 screen capture)
     private val projectionLauncher = registerForActivityResult(
@@ -78,8 +81,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 RootScreen(
-                    viewModel    = viewModel,
-                    permViewModel = permViewModel,
+                    viewModel       = viewModel,
+                    permViewModel   = permViewModel,
+                    builderViewModel = builderViewModel,
                     onRequestOverlay       = ::requestOverlayPermission,
                     onRequestAccessibility = ::openAccessibilitySettings,
                     onRequestProjection    = ::requestMediaProjection,
@@ -193,6 +197,7 @@ class MainViewModel @Inject constructor(
 private fun RootScreen(
     viewModel: MainViewModel,
     permViewModel: PermissionViewModel,
+    builderViewModel: MacroBuilderViewModel,
     onRequestOverlay: () -> Unit,
     onRequestAccessibility: () -> Unit,
     onRequestProjection: () -> Unit,
@@ -211,6 +216,7 @@ private fun RootScreen(
         if (allGranted) {
             TitanApp(
                 viewModel            = viewModel,
+                builderViewModel     = builderViewModel,
                 permissions          = permissions,
                 onRequestOverlay     = onRequestOverlay,
                 onRequestAccessibility = onRequestAccessibility,
@@ -464,6 +470,7 @@ private fun PermissionStepCard(stepNumber: Int, step: OnboardingStep) {
 @Composable
 private fun TitanApp(
     viewModel: MainViewModel,
+    builderViewModel: MacroBuilderViewModel,
     permissions: PermissionState,
     onRequestOverlay: () -> Unit,
     onRequestAccessibility: () -> Unit,
@@ -500,6 +507,7 @@ private fun TitanApp(
             NavigationBar(containerColor = Color(0xFF0D1117)) {
                 listOf(
                     "Workflows" to Icons.Default.PlayArrow,
+                    "Builder"   to Icons.Default.TouchApp,
                     "Live Log"  to Icons.Default.Terminal,
                     "Settings"  to Icons.Default.Settings
                 ).forEachIndexed { i, (label, icon) ->
@@ -524,8 +532,12 @@ private fun TitanApp(
                     onRequestAccessibility = onRequestAccessibility,
                     modifier    = Modifier.padding(padding)
                 )
-            1 -> LiveLogTab(events = events, modifier = Modifier.padding(padding))
-            2 -> SettingsTab(
+            1 -> MacroBuilderScreen(
+                    viewModel = builderViewModel,
+                    modifier  = Modifier.padding(padding)
+                )
+            2 -> LiveLogTab(events = events, modifier = Modifier.padding(padding))
+            3 -> SettingsTab(
                     permissions         = permissions,
                     onRequestProjection = onRequestProjection,
                     onRequestOverlay    = onRequestOverlay,

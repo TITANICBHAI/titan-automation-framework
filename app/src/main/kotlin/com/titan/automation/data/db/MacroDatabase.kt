@@ -108,15 +108,21 @@ interface TemplateDao {
     suspend fun getByPlugin(pluginId: String): List<TemplateEntity>
 }
 
-// ── Database ──────────────────────────────────────────────────────────────────
+// ── Database — version 2 (adds simple_macros table) ──────────────────────────
 
 @Database(
-    entities   = [WorkflowEntity::class, SessionEntity::class, TemplateEntity::class],
-    version    = 1,
+    entities   = [
+        WorkflowEntity::class,
+        SessionEntity::class,
+        TemplateEntity::class,
+        SimpleMacroEntity::class
+    ],
+    version    = 2,
     exportSchema = true
 )
 abstract class MacroDatabase : RoomDatabase() {
     abstract fun workflowDao(): WorkflowDao
     abstract fun sessionDao(): SessionDao
     abstract fun templateDao(): TemplateDao
+    abstract fun simpleMacroDao(): SimpleMacroDao
 }
