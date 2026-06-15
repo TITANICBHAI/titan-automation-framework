@@ -1,0 +1,84 @@
+[versions]
+agp                     = "8.5.2"
+kotlin                  = "2.0.21"
+ksp                     = "2.0.21-1.0.28"
+hilt                    = "2.52"
+coroutines              = "1.9.0"
+compose-bom             = "2024.10.00"
+navigation-compose      = "2.8.3"
+lifecycle               = "2.8.6"
+room                    = "2.6.1"
+datastore               = "1.1.1"
+tflite                  = "2.14.0"
+mlkit-ocr               = "16.0.1"
+opencv                  = "4.9.0"
+serialization-json      = "1.7.3"
+security-crypto         = "1.1.0-alpha06"
+activity-compose        = "1.9.3"
+core-ktx                = "1.13.1"
+appcompat               = "1.7.0"
+material                = "1.12.0"
+
+[libraries]
+# Kotlin / Coroutines
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization-json" }
+
+# AndroidX Core
+core-ktx           = { module = "androidx.core:core-ktx",           version.ref = "core-ktx" }
+appcompat          = { module = "androidx.appcompat:appcompat",      version.ref = "appcompat" }
+material           = { module = "com.google.android.material:material", version.ref = "material" }
+activity-compose   = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+
+# Lifecycle
+lifecycle-runtime-ktx          = { module = "androidx.lifecycle:lifecycle-runtime-ktx",          version.ref = "lifecycle" }
+lifecycle-viewmodel-compose    = { module = "androidx.lifecycle:lifecycle-viewmodel-compose",    version.ref = "lifecycle" }
+lifecycle-runtime-compose      = { module = "androidx.lifecycle:lifecycle-runtime-compose",      version.ref = "lifecycle" }
+lifecycle-service              = { module = "androidx.lifecycle:lifecycle-service",              version.ref = "lifecycle" }
+
+# Compose
+compose-bom                = { module = "androidx.compose:compose-bom",                  version.ref = "compose-bom" }
+compose-ui                 = { module = "androidx.compose.ui:ui" }
+compose-ui-graphics        = { module = "androidx.compose.ui:ui-graphics" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-ui-tooling         = { module = "androidx.compose.ui:ui-tooling" }
+compose-material3          = { module = "androidx.compose.material3:material3" }
+compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+navigation-compose         = { module = "androidx.navigation:navigation-compose", version.ref = "navigation-compose" }
+
+# Hilt DI
+hilt-android           = { module = "com.google.dagger:hilt-android",           version.ref = "hilt" }
+hilt-compiler          = { module = "com.google.dagger:hilt-compiler",          version.ref = "hilt" }
+hilt-navigation-compose= { module = "androidx.hilt:hilt-navigation-compose",    version = "1.2.0" }
+
+# Room
+room-runtime   = { module = "androidx.room:room-runtime",   version.ref = "room" }
+room-ktx       = { module = "androidx.room:room-ktx",       version.ref = "room" }
+room-compiler  = { module = "androidx.room:room-compiler",  version.ref = "room" }
+
+# DataStore
+datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+datastore-core        = { module = "androidx.datastore:datastore-core",        version.ref = "datastore" }
+
+# Security
+security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
+
+# TensorFlow Lite
+tflite           = { module = "org.tensorflow:tensorflow-lite",         version.ref = "tflite" }
+tflite-support   = { module = "org.tensorflow:tensorflow-lite-support", version = "0.4.4" }
+tflite-gpu       = { module = "org.tensorflow:tensorflow-lite-gpu-delegate-plugin", version.ref = "tflite" }
+
+# ML Kit
+mlkit-text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "mlkit-ocr" }
+
+# OpenCV — distributed as AAR placed at app/libs/opencv.aar
+# (Download from https://github.com/opencv/opencv/releases tag 4.9.0, OpenCV-4.9.0-android-sdk.zip)
+# opencv = { module = "org.opencv:opencv", version.ref = "opencv" }   # use local AAR instead
+
+[plugins]
+android-application   = { id = "com.android.application",              version.ref = "agp" }
+kotlin-android        = { id = "org.jetbrains.kotlin.android",         version.ref = "kotlin" }
+kotlin-compose        = { id = "org.jetbrains.kotlin.plugin.compose",  version.ref = "kotlin" }
+hilt                  = { id = "com.google.dagger.hilt.android",       version.ref = "hilt" }
+ksp                   = { id = "com.google.devtools.ksp",              version.ref = "ksp" }
+kotlin-serialization  = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

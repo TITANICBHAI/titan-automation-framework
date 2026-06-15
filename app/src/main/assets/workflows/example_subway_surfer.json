@@ -1,0 +1,96 @@
+{
+  "workflow_id": "subway_surfer_autonomous_gold_run",
+  "version": 2,
+  "initial_state": "MAIN_MENU_LOBBY",
+  "global_timeout_ms": 600000,
+  "rl_global_enabled": true,
+  "states": {
+    "MAIN_MENU_LOBBY": {
+      "rl_enabled": false,
+      "max_retries": 3,
+      "cooldown_ms": 1500,
+      "timeout_ms": 10000,
+      "on_success": "ACTIVE_RUNPLAY",
+      "on_failure": "FORCE_RECOVERY_LOBBY",
+      "vision_match_rule": {
+        "template_id": "play_button_desktop_mode",
+        "min_confidence": 0.88,
+        "multi_scale": true,
+        "region": { "left": 300, "top": 1200, "right": 780, "bottom": 1500 },
+        "action_intent": "TAP_START_PLAY"
+      }
+    },
+    "ACTIVE_RUNPLAY": {
+      "rl_enabled": true,
+      "max_retries": 50,
+      "cooldown_ms": 80,
+      "timeout_ms": 3000,
+      "on_success": "ACTIVE_RUNPLAY",
+      "on_failure": "GAME_OVER_SCREEN",
+      "conditions": [
+        {
+          "condition_type": "VISION_MATCH",
+          "value": "obstacle_left",
+          "action_intent": "SWIPE_RIGHT",
+          "next_state": "ACTIVE_RUNPLAY"
+        },
+        {
+          "condition_type": "VISION_MATCH",
+          "value": "obstacle_right",
+          "action_intent": "SWIPE_LEFT",
+          "next_state": "ACTIVE_RUNPLAY"
+        },
+        {
+          "condition_type": "VISION_MATCH",
+          "value": "obstacle_low",
+          "action_intent": "SWIPE_UP",
+          "next_state": "ACTIVE_RUNPLAY"
+        },
+        {
+          "condition_type": "VISION_MATCH",
+          "value": "obstacle_high",
+          "action_intent": "SWIPE_DOWN",
+          "next_state": "ACTIVE_RUNPLAY"
+        }
+      ]
+    },
+    "GAME_OVER_SCREEN": {
+      "rl_enabled": false,
+      "max_retries": 5,
+      "cooldown_ms": 2000,
+      "timeout_ms": 8000,
+      "on_success": "MAIN_MENU_LOBBY",
+      "on_failure": "FORCE_RECOVERY_LOBBY",
+      "ocr_scan_rule": {
+        "region": { "left": 100, "top": 400, "right": 980, "bottom": 900 },
+        "regex_pattern": "(GAME OVER|RETRY|REVIVE|TAP TO CONTINUE)",
+        "min_confidence": 0.65,
+        "fuzzy_match": true,
+        "action_intent": "FORCE_TAP_CONTINUE"
+      }
+    },
+    "FORCE_RECOVERY_LOBBY": {
+      "rl_enabled": false,
+      "max_retries": 2,
+      "cooldown_ms": 3000,
+      "timeout_ms": 15000,
+      "on_success": "MAIN_MENU_LOBBY",
+      "on_failure": "END",
+      "vision_match_rule": {
+        "template_id": "home_icon",
+        "min_confidence": 0.75,
+        "multi_scale": true,
+        "action_intent": "TAP_HOME"
+      }
+    }
+  },
+  "actions": {
+    "TAP_START_PLAY":     { "interaction_type": "TAP",        "x": 0.50, "y": 0.70, "delay_after_ms": 500 },
+    "SWIPE_RIGHT":        { "interaction_type": "SWIPE",      "x": 0.30, "y": 0.50, "end_x": 0.70, "end_y": 0.50, "duration_ms": 120 },
+    "SWIPE_LEFT":         { "interaction_type": "SWIPE",      "x": 0.70, "y": 0.50, "end_x": 0.30, "end_y": 0.50, "duration_ms": 120 },
+    "SWIPE_UP":           { "interaction_type": "SWIPE",      "x": 0.50, "y": 0.70, "end_x": 0.50, "end_y": 0.30, "duration_ms": 100 },
+    "SWIPE_DOWN":         { "interaction_type": "SWIPE",      "x": 0.50, "y": 0.30, "end_x": 0.50, "end_y": 0.70, "duration_ms": 100 },
+    "FORCE_TAP_CONTINUE": { "interaction_type": "TAP",        "x": 0.50, "y": 0.60, "delay_after_ms": 300 },
+    "TAP_HOME":           { "interaction_type": "TAP",        "x": 0.50, "y": 0.93 }
+  }
+}

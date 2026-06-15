@@ -1,0 +1,11 @@
+# opencv.aar is 35 MB — not committed.
+# Download OpenCV-4.9.0-android-sdk.zip from:
+#   https://github.com/opencv/opencv/releases/tag/4.9.0
+# Then extract: sdk/native/libs → this directory as opencv.aar
+#
+# CI builds automatically fall back to org.opencv:opencv:4.9.0 on Maven Central.
+
+*.aar
+# Keep this placeholder file so the libs/ directory is tracked in git
+!.gitignore
+!.gitkeep

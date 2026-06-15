@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ── Foreground Service types (Android 14 strict enforcement) ────── -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- ── Screen capture ─────────────────────────────────────────────── -->
+    <!-- MediaProjection requires this; also used by AccessibilityService.takeScreenshot() -->
+
+    <!-- ── Overlay ────────────────────────────────────────────────────── -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- ── Device state ───────────────────────────────────────────────── -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- ── Storage (legacy, max API 28) ───────────────────────────────── -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <application
+        android:name=".TitanApplication"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:largeHeap="true"
+        android:theme="@style/Theme.TitanAutomation"
+        tools:targetApi="35">
+
+        <!-- ── Main launcher ────────────────────────────────────────── -->
+        <activity
+            android:name=".ui.MainActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- ── Accessibility Service ─────────────────────────────────
+             canPerformGestures="true"  → GestureDescription dispatch
+             canTakeScreenshot="true"   → zero-copy capture on API 30+
+             canRetrieveWindowContent   → UI tree for action masking   -->
+        <service
+            android:name=".engine.accessibility.MacroAccessibilityService"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- ── Screen Capture Service (MediaProjection foreground) ─── -->
+        <service
+            android:name=".engine.capture.ScreenCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <!-- ── Overlay Controller ────────────────────────────────── -->
+        <service
+            android:name=".engine.overlay.OverlayService"
+            android:exported="false" />
+
+        <!-- ── Watchdog Supervisor (separate :watchdog process) ────── -->
+        <service
+            android:name=".engine.watchdog.WatchdogService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:process=":watchdog" />
+
+        <!-- ── Boot Receiver ─────────────────────────────────────── -->
+        <receiver
+            android:name=".engine.watchdog.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Required on Android 14+ when any service uses specialUse -->
+        <property
+            android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+            android:value="Titan Automation watchdog supervisor — monitors engine heartbeat and restores crashed services. Does not fit standard foreground service categories." />
+
+    </application>
+</manifest>

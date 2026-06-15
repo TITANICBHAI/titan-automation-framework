@@ -1,0 +1,116 @@
+{
+  "workflow_id": "generic_login_form_filler",
+  "version": 1,
+  "initial_state": "DETECT_LOGIN_SCREEN",
+  "global_timeout_ms": 120000,
+  "rl_global_enabled": false,
+  "states": {
+    "DETECT_LOGIN_SCREEN": {
+      "rl_enabled": false,
+      "max_retries": 3,
+      "cooldown_ms": 800,
+      "timeout_ms": 10000,
+      "on_success": "TAP_USERNAME_FIELD",
+      "on_failure": "END",
+      "ocr_scan_rule": {
+        "regex_pattern": "(Sign in|Log in|Login|Email|Username)",
+        "min_confidence": 0.70,
+        "fuzzy_match": true,
+        "action_intent": "WAIT_AFTER_DETECT"
+      }
+    },
+    "TAP_USERNAME_FIELD": {
+      "rl_enabled": false,
+      "max_retries": 2,
+      "cooldown_ms": 400,
+      "timeout_ms": 5000,
+      "on_success": "TYPE_USERNAME",
+      "on_failure": "END",
+      "vision_match_rule": {
+        "template_id": "email_input_field",
+        "min_confidence": 0.80,
+        "multi_scale": true,
+        "action_intent": "TAP_USERNAME"
+      }
+    },
+    "TYPE_USERNAME": {
+      "rl_enabled": false,
+      "max_retries": 1,
+      "cooldown_ms": 300,
+      "timeout_ms": 5000,
+      "on_success": "TAP_PASSWORD_FIELD",
+      "on_failure": "END",
+      "vision_match_rule": {
+        "template_id": "keyboard_visible",
+        "min_confidence": 0.70,
+        "multi_scale": false,
+        "action_intent": "TYPE_EMAIL_TEXT"
+      }
+    },
+    "TAP_PASSWORD_FIELD": {
+      "rl_enabled": false,
+      "max_retries": 2,
+      "cooldown_ms": 400,
+      "timeout_ms": 5000,
+      "on_success": "TYPE_PASSWORD",
+      "on_failure": "END",
+      "vision_match_rule": {
+        "template_id": "password_input_field",
+        "min_confidence": 0.80,
+        "multi_scale": true,
+        "action_intent": "TAP_PASSWORD"
+      }
+    },
+    "TYPE_PASSWORD": {
+      "rl_enabled": false,
+      "max_retries": 1,
+      "cooldown_ms": 300,
+      "timeout_ms": 5000,
+      "on_success": "TAP_SUBMIT",
+      "on_failure": "END",
+      "vision_match_rule": {
+        "template_id": "keyboard_visible",
+        "min_confidence": 0.70,
+        "multi_scale": false,
+        "action_intent": "TYPE_PASSWORD_TEXT"
+      }
+    },
+    "TAP_SUBMIT": {
+      "rl_enabled": false,
+      "max_retries": 3,
+      "cooldown_ms": 1000,
+      "timeout_ms": 8000,
+      "on_success": "VERIFY_LOGGED_IN",
+      "on_failure": "END",
+      "vision_match_rule": {
+        "template_id": "login_button",
+        "min_confidence": 0.82,
+        "multi_scale": true,
+        "action_intent": "TAP_LOGIN_BUTTON"
+      }
+    },
+    "VERIFY_LOGGED_IN": {
+      "rl_enabled": false,
+      "max_retries": 5,
+      "cooldown_ms": 2000,
+      "timeout_ms": 15000,
+      "on_success": "END",
+      "on_failure": "END",
+      "ocr_scan_rule": {
+        "regex_pattern": "(Dashboard|Home|Welcome|Profile|Feed)",
+        "min_confidence": 0.65,
+        "fuzzy_match": true,
+        "action_intent": "WAIT_VERIFY"
+      }
+    }
+  },
+  "actions": {
+    "WAIT_AFTER_DETECT":  { "interaction_type": "WAIT",       "duration_ms": 500 },
+    "TAP_USERNAME":       { "interaction_type": "TAP",        "x": 0.50, "y": 0.35, "delay_after_ms": 400 },
+    "TYPE_EMAIL_TEXT":    { "interaction_type": "TYPE_TEXT",  "text_input": "__USERNAME__", "delay_after_ms": 300 },
+    "TAP_PASSWORD":       { "interaction_type": "TAP",        "x": 0.50, "y": 0.50, "delay_after_ms": 400 },
+    "TYPE_PASSWORD_TEXT": { "interaction_type": "TYPE_TEXT",  "text_input": "__PASSWORD__", "delay_after_ms": 300 },
+    "TAP_LOGIN_BUTTON":   { "interaction_type": "TAP",        "x": 0.50, "y": 0.65, "delay_after_ms": 1000 },
+    "WAIT_VERIFY":        { "interaction_type": "WAIT",       "duration_ms": 2000 }
+  }
+}

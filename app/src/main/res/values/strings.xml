@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Titan Automation</string>
+    <string name="accessibility_service_description">Titan Automation — automated gesture dispatch and screen analysis engine. Required for macro execution without root access.</string>
+    <string name="notification_channel_engine">Automation Engine</string>
+    <string name="notification_channel_capture">Screen Capture</string>
+    <string name="notification_channel_watchdog">Watchdog</string>
+    <string name="notification_engine_running">Titan Engine running</string>
+    <string name="notification_capture_running">Screen capture active</string>
+    <string name="notification_watchdog_running">Titan watchdog active</string>
+</resources>

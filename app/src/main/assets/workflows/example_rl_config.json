@@ -1,0 +1,49 @@
+{
+  "workflow_id": "rl_adaptive_game_navigator",
+  "version": 1,
+  "initial_state": "OBSERVE_SCREEN",
+  "global_timeout_ms": 3600000,
+  "rl_global_enabled": true,
+  "states": {
+    "OBSERVE_SCREEN": {
+      "rl_enabled": true,
+      "max_retries": 100,
+      "cooldown_ms": 150,
+      "timeout_ms": 2000,
+      "on_success": "OBSERVE_SCREEN",
+      "on_failure": "OBSERVE_SCREEN",
+      "conditions": [
+        {
+          "condition_type": "VISION_MATCH",
+          "value": "interactive_button_top_left",
+          "action_intent": "RL_TAP_TOP_LEFT",
+          "next_state": "OBSERVE_SCREEN"
+        },
+        {
+          "condition_type": "VISION_MATCH",
+          "value": "interactive_button_top_right",
+          "action_intent": "RL_TAP_TOP_RIGHT",
+          "next_state": "OBSERVE_SCREEN"
+        },
+        {
+          "condition_type": "VISION_MATCH",
+          "value": "interactive_button_bottom",
+          "action_intent": "RL_TAP_BOTTOM",
+          "next_state": "OBSERVE_SCREEN"
+        },
+        {
+          "condition_type": "OCR_CONTAINS",
+          "value": "REWARD|COLLECT|CLAIM|BONUS",
+          "action_intent": "RL_TAP_CENTER",
+          "next_state": "OBSERVE_SCREEN"
+        }
+      ]
+    }
+  },
+  "actions": {
+    "RL_TAP_TOP_LEFT":   { "interaction_type": "TAP", "x": 0.25, "y": 0.25 },
+    "RL_TAP_TOP_RIGHT":  { "interaction_type": "TAP", "x": 0.75, "y": 0.25 },
+    "RL_TAP_BOTTOM":     { "interaction_type": "TAP", "x": 0.50, "y": 0.80 },
+    "RL_TAP_CENTER":     { "interaction_type": "TAP", "x": 0.50, "y": 0.50 }
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "workflow_id": "advanced_battle_loop",
+  "version": 2,
+  "initial_state": "MAIN_MENU",
+  "global_timeout_ms": 600000,
+  "rl_global_enabled": true,
+  "states": {
+    "MAIN_MENU": {
+      "rl_enabled": false,
+      "max_retries": 5,
+      "cooldown_ms": 1200,
+      "timeout_ms": 15000,
+      "on_success": "LOADING_SCREEN",
+      "on_failure": "RECOVERY_RESTART",
+      "vision_match_rule": {
+        "template_id": "main_menu_play_btn",
+        "min_confidence": 0.88,
+        "multi_scale": true,
+        "action_intent": "TAP_PLAY_BUTTON"
+      }
+    },
+    "LOADING_SCREEN": {
+      "rl_enabled": false,
+      "max_retries": 30,
+      "cooldown_ms": 800,
+      "timeout_ms": 30000,
+      "on_success": "BATTLE_ACTIVE",
+      "on_failure": "MAIN_MENU",
+      "ocr_scan_rule": {
+        "region": { "left": 0.1, "top": 0.4, "right": 0.9, "bottom": 0.7 },
+        "expected_regex": "(?i)(battle|ready|fight|vs)",
+        "min_confidence": 0.70,
+        "action_intent": "WAIT_NO_ACTION"
+      }
+    },
+    "BATTLE_ACTIVE": {
+      "rl_enabled": true,
+      "max_retries": 200,
+      "cooldown_ms": 80,
+      "timeout_ms": 120000,
+      "on_success": "BATTLE_ACTIVE",
+      "on_failure": "BATTLE_RESULT",
+      "ocr_scan_rule": {
+        "region": { "left": 0.05, "top": 0.3, "right": 0.95, "bottom": 0.85 },
+        "expected_regex": "(?i)(victory|defeat|game over|retry|continue)",
+        "min_confidence": 0.65,
+        "action_intent": "DETECT_BATTLE_END"
+      },
+      "conditions": [
+        {
+          "vision_match_rule": {
+            "template_id": "health_bar_critical",
+            "min_confidence": 0.80,
+            "action_intent": "USE_POTION"
+          }
+        },
+        {
+          "vision_match_rule": {
+            "template_id": "skill_ready_indicator",
+            "min_confidence": 0.82,
+            "action_intent": "ACTIVATE_SKILL"
+          }
+        }
+      ]
+    },
+    "BATTLE_RESULT": {
+      "rl_enabled": false,
+      "max_retries": 5,
+      "cooldown_ms": 500,
+      "timeout_ms": 10000,
+      "on_success": "COLLECT_REWARDS",
+      "on_failure": "MAIN_MENU",
+      "ocr_scan_rule": {
+        "region": { "left": 0.1, "top": 0.2, "right": 0.9, "bottom": 0.8 },
+        "expected_regex": "(?i)(victory|defeat|result)",
+        "min_confidence": 0.70,
+        "action_intent": "TAP_CONTINUE_RESULT"
+      }
+    },
+    "COLLECT_REWARDS": {
+      "rl_enabled": false,
+      "max_retries": 8,
+      "cooldown_ms": 400,
+      "timeout_ms": 12000,
+      "on_success": "MAIN_MENU",
+      "on_failure": "MAIN_MENU",
+      "vision_match_rule": {
+        "template_id": "reward_collect_button",
+        "min_confidence": 0.84,
+        "action_intent": "TAP_COLLECT"
+      }
+    },
+    "RECOVERY_RESTART": {
+      "rl_enabled": false,
+      "max_retries": 3,
+      "cooldown_ms": 3000,
+      "timeout_ms": 20000,
+      "on_success": "MAIN_MENU",
+      "on_failure": "END",
+      "vision_match_rule": {
+        "template_id": "app_icon_or_home",
+        "min_confidence": 0.75,
+        "action_intent": "RELAUNCH_APP"
+      }
+    },
+    "END": {
+      "rl_enabled": false,
+      "max_retries": 0,
+      "cooldown_ms": 0,
+      "timeout_ms": 1000,
+      "on_success": "END",
+      "on_failure": "END"
+    }
+  },
+  "actions": {
+    "TAP_PLAY_BUTTON":     { "interaction_type": "TAP",        "x": 0.50, "y": 0.72, "delay_after_ms": 800 },
+    "WAIT_NO_ACTION":      { "interaction_type": "WAIT",       "x": 0.50, "y": 0.50, "delay_after_ms": 800 },
+    "DETECT_BATTLE_END":   { "interaction_type": "TAP",        "x": 0.50, "y": 0.55, "delay_after_ms": 300 },
+    "USE_POTION":          { "interaction_type": "TAP",        "x": 0.15, "y": 0.80, "delay_after_ms": 200 },
+    "ACTIVATE_SKILL":      { "interaction_type": "TAP",        "x": 0.85, "y": 0.78, "delay_after_ms": 150 },
+    "TAP_CONTINUE_RESULT": { "interaction_type": "TAP",        "x": 0.50, "y": 0.88, "delay_after_ms": 500 },
+    "TAP_COLLECT":         { "interaction_type": "TAP",        "x": 0.50, "y": 0.80, "delay_after_ms": 600 },
+    "RELAUNCH_APP":        { "interaction_type": "TAP",        "x": 0.50, "y": 0.50, "delay_after_ms": 2000 }
+  },
+  "_comment": {
+    "description": "Advanced battle loop with RL-driven combat, OCR result detection, and multi-condition branching",
+    "rl_notes": "BATTLE_ACTIVE uses RL with action masking — only interactive skill/health buttons are valid targets",
+    "spa_notes": "SPA step penalty ψ=0.05 prevents the RL agent from looping endlessly in BATTLE_ACTIVE",
+    "coordinates": "All x/y are normalised [0..1] screen-space, converted to physical px at dispatch",
+    "templates_needed": [
+      "main_menu_play_btn.png",
+      "health_bar_critical.png",
+      "skill_ready_indicator.png",
+      "reward_collect_button.png",
+      "app_icon_or_home.png"
+    ]
+  }
+}

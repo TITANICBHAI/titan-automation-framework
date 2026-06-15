@@ -1,0 +1,25 @@
+# Build outputs
+app/build/
+build/
+.gradle/
+*.apk
+*.aab
+
+# Local AAR (user must provide)
+app/libs/opencv.aar
+
+# Android Studio / IDE
+.idea/
+*.iml
+local.properties
+.DS_Store
+
+# Keystore (never commit)
+*.jks
+*.keystore
+
+# TFLite models (large; distribute separately)
+app/src/main/assets/models/
+
+# Room schema export (optional — remove if you want to track schema)
+app/schemas/
