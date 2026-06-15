@@ -36,9 +36,9 @@ outputType = "console"
 name = "Push to GitHub"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "bash scripts/github-push.sh \"feat: add WAIT_FOR_IMAGE/OCR steps, schedule system, full Settings tab, step highlight, export UI, thermal monitor\""
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export GITHUB_TOKEN=\"$GITHUB_PERSONAL_ACCESS_TOKEN\"; bash scripts/github-push.sh \"feat: add WAIT_FOR_IMAGE/OCR steps, schedule system, full Settings tab, step highlight, export UI, thermal monitor\""
