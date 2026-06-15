@@ -36,8 +36,20 @@ data class WorkflowState(
     @SerialName("on_failure")            val onFailure: String,
     @SerialName("vision_match_rule")     val visionMatchRule: VisionMatchRule? = null,
     @SerialName("ocr_scan_rule")         val ocrScanRule: OcrScanRule? = null,
+    @SerialName("histogram_scan_rule")   val histogramScanRule: HistogramScanRule? = null,
     @SerialName("conditions")            val conditions: List<ConditionalBranch> = emptyList()
 )
+
+/**
+ * Matching algorithm for [VisionMatchRule].
+ *
+ * TEMPLATE — TM_CCOEFF_NORMED with optional multi-scale resizing (default).
+ *            Best for exact pixel templates; sensitive to scale/rotation.
+ * ORB      — ORB keypoints + BFMatcher Hamming + Lowe ratio test.
+ *            Scale/rotation-invariant; use for logos, icons, rotated elements.
+ */
+@Serializable
+enum class MatchMode { TEMPLATE, ORB }
 
 @Serializable
 data class VisionMatchRule(
@@ -45,6 +57,7 @@ data class VisionMatchRule(
     @SerialName("min_confidence")        val minConfidence: Float = 0.85f,
     @SerialName("region")                val region: ScreenRegion? = null,
     @SerialName("multi_scale")           val multiScale: Boolean = true,
+    @SerialName("match_mode")            val matchMode: MatchMode = MatchMode.TEMPLATE,
     @SerialName("action_intent")         val actionIntent: String
 )
 
@@ -54,6 +67,24 @@ data class OcrScanRule(
     @SerialName("regex_pattern")         val regexPattern: String,
     @SerialName("min_confidence")        val minConfidence: Float = 0.7f,
     @SerialName("fuzzy_match")           val fuzzyMatch: Boolean = false,
+    @SerialName("action_intent")         val actionIntent: String
+)
+
+/**
+ * Histogram-based state validation rule.
+ *
+ * Compares the 2-D HSV histogram of the current frame against a saved
+ * reference screenshot ([referenceTemplateId]) using HISTCMP_CORREL.
+ * Similarity ≥ [minSimilarity] → condition passes.
+ *
+ * Use for: scene detection (game-over screen, loading screen, main menu)
+ * without requiring a pixel-perfect template match.
+ */
+@Serializable
+data class HistogramScanRule(
+    @SerialName("reference_template_id") val referenceTemplateId: String,
+    @SerialName("region")                val region: ScreenRegion? = null,
+    @SerialName("min_similarity")        val minSimilarity: Float = 0.70f,
     @SerialName("action_intent")         val actionIntent: String
 )
 
@@ -92,7 +123,13 @@ enum class InteractionType {
 
 @Serializable
 enum class ConditionType {
-    OCR_CONTAINS, VISION_MATCH, STATE_FLAG, BATTERY_BELOW, THERMAL_ABOVE
+    OCR_CONTAINS,
+    VISION_MATCH,
+    ORB_MATCH,          // value = template_id — ORB feature match
+    HISTOGRAM_MATCH,    // value = reference_template_id — colour histogram similarity ≥ 0.70
+    STATE_FLAG,         // value = expected state name
+    BATTERY_BELOW,      // value = integer percentage threshold
+    THERMAL_ABOVE       // value = ThermalLevel name (LIGHT/MODERATE/SEVERE/CRITICAL)
 }
 
 /** Runtime state for a running workflow session. */

@@ -1,0 +1,169 @@
+{
+  "workflow_id": "sign_in_orb_histogram_demo",
+  "version": 2,
+  "initial_state": "DETECT_LOGIN_SCREEN",
+  "global_timeout_ms": 120000,
+  "rl_global_enabled": false,
+  "states": {
+    "DETECT_LOGIN_SCREEN": {
+      "rl_enabled": false,
+      "max_retries": 10,
+      "cooldown_ms": 800,
+      "timeout_ms": 20000,
+      "on_success": "TYPE_USERNAME",
+      "on_failure": "RECOVERY_RESTART",
+      "vision_match_rule": {
+        "template_id": "login_button_icon",
+        "min_confidence": 0.60,
+        "match_mode": "ORB",
+        "multi_scale": true,
+        "region": { "left": 0, "top": 800, "right": 1080, "bottom": 1400 },
+        "action_intent": "WAIT_NO_ACTION"
+      }
+    },
+
+    "TYPE_USERNAME": {
+      "rl_enabled": false,
+      "max_retries": 3,
+      "cooldown_ms": 400,
+      "timeout_ms": 8000,
+      "on_success": "TYPE_PASSWORD",
+      "on_failure": "RECOVERY_RESTART",
+      "vision_match_rule": {
+        "template_id": "username_field_active",
+        "min_confidence": 0.75,
+        "match_mode": "TEMPLATE",
+        "action_intent": "TAP_USERNAME_FIELD"
+      }
+    },
+
+    "TYPE_PASSWORD": {
+      "rl_enabled": false,
+      "max_retries": 3,
+      "cooldown_ms": 400,
+      "timeout_ms": 8000,
+      "on_success": "TAP_SIGN_IN",
+      "on_failure": "RECOVERY_RESTART",
+      "vision_match_rule": {
+        "template_id": "password_field_active",
+        "min_confidence": 0.75,
+        "match_mode": "TEMPLATE",
+        "action_intent": "TAP_PASSWORD_FIELD"
+      }
+    },
+
+    "TAP_SIGN_IN": {
+      "rl_enabled": false,
+      "max_retries": 3,
+      "cooldown_ms": 1500,
+      "timeout_ms": 8000,
+      "on_success": "VERIFY_HOME_SCREEN",
+      "on_failure": "RECOVERY_RESTART",
+      "vision_match_rule": {
+        "template_id": "sign_in_button",
+        "min_confidence": 0.82,
+        "match_mode": "TEMPLATE",
+        "action_intent": "TAP_SIGN_IN_BUTTON"
+      }
+    },
+
+    "VERIFY_HOME_SCREEN": {
+      "rl_enabled": false,
+      "max_retries": 12,
+      "cooldown_ms": 1000,
+      "timeout_ms": 30000,
+      "on_success": "END",
+      "on_failure": "CHECK_ERROR_STATES",
+      "histogram_scan_rule": {
+        "reference_template_id": "home_screen_reference",
+        "region": { "left": 0, "top": 0, "right": 1080, "bottom": 400 },
+        "min_similarity": 0.72,
+        "action_intent": "WAIT_NO_ACTION"
+      }
+    },
+
+    "CHECK_ERROR_STATES": {
+      "rl_enabled": false,
+      "max_retries": 5,
+      "cooldown_ms": 600,
+      "timeout_ms": 10000,
+      "on_success": "TYPE_USERNAME",
+      "on_failure": "RECOVERY_RESTART",
+      "conditions": [
+        {
+          "condition_type": "OCR_CONTAINS",
+          "value": "(?i)(wrong password|incorrect|invalid credentials|try again)",
+          "action_intent": "DISMISS_ERROR_DIALOG",
+          "next_state": "TYPE_USERNAME"
+        },
+        {
+          "condition_type": "OCR_CONTAINS",
+          "value": "(?i)(account locked|too many attempts|temporarily disabled)",
+          "action_intent": "WAIT_NO_ACTION",
+          "next_state": "RECOVERY_RESTART"
+        },
+        {
+          "condition_type": "OCR_CONTAINS",
+          "value": "(?i)(verify|captcha|robot|not a robot)",
+          "action_intent": "WAIT_NO_ACTION",
+          "next_state": "RECOVERY_RESTART"
+        },
+        {
+          "condition_type": "VISION_MATCH",
+          "value": "network_error_banner",
+          "action_intent": "TAP_RETRY_NETWORK",
+          "next_state": "TAP_SIGN_IN"
+        },
+        {
+          "condition_type": "ORB_MATCH",
+          "value": "loading_spinner_icon",
+          "action_intent": "WAIT_NO_ACTION",
+          "next_state": "VERIFY_HOME_SCREEN"
+        },
+        {
+          "condition_type": "HISTOGRAM_MATCH",
+          "value": "home_screen_reference",
+          "action_intent": "WAIT_NO_ACTION",
+          "next_state": "END"
+        },
+        {
+          "condition_type": "BATTERY_BELOW",
+          "value": "10",
+          "action_intent": "WAIT_NO_ACTION",
+          "next_state": "RECOVERY_RESTART"
+        },
+        {
+          "condition_type": "THERMAL_ABOVE",
+          "value": "SEVERE",
+          "action_intent": "WAIT_NO_ACTION",
+          "next_state": "RECOVERY_RESTART"
+        }
+      ]
+    },
+
+    "RECOVERY_RESTART": {
+      "rl_enabled": false,
+      "max_retries": 2,
+      "cooldown_ms": 3000,
+      "timeout_ms": 10000,
+      "on_success": "DETECT_LOGIN_SCREEN",
+      "on_failure": "END",
+      "vision_match_rule": {
+        "template_id": "app_icon_orb",
+        "min_confidence": 0.55,
+        "match_mode": "ORB",
+        "action_intent": "TAP_APP_ICON"
+      }
+    }
+  },
+
+  "actions": {
+    "WAIT_NO_ACTION":      { "interaction_type": "WAIT",       "duration_ms": 500 },
+    "TAP_USERNAME_FIELD":  { "interaction_type": "TYPE_TEXT",  "x": 540.0, "y": 880.0, "text_input": "demo_user@example.com", "delay_after_ms": 300 },
+    "TAP_PASSWORD_FIELD":  { "interaction_type": "TYPE_TEXT",  "x": 540.0, "y": 980.0, "text_input": "SecureP@ss123",         "delay_after_ms": 300 },
+    "TAP_SIGN_IN_BUTTON":  { "interaction_type": "TAP",        "x": 540.0, "y": 1100.0, "delay_after_ms": 500 },
+    "DISMISS_ERROR_DIALOG":{ "interaction_type": "TAP",        "x": 540.0, "y": 1200.0, "delay_after_ms": 600 },
+    "TAP_RETRY_NETWORK":   { "interaction_type": "TAP",        "x": 540.0, "y": 1300.0, "delay_after_ms": 1000 },
+    "TAP_APP_ICON":        { "interaction_type": "TAP",        "x": 540.0, "y": 960.0,  "delay_after_ms": 2000 }
+  }
+}

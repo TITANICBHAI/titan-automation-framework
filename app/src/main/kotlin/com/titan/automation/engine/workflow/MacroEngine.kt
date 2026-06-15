@@ -1,6 +1,8 @@
 package com.titan.automation.engine.workflow
 
+import android.os.Bundle
 import android.util.Log
+import android.view.accessibility.AccessibilityNodeInfo
 import com.titan.automation.domain.model.*
 import com.titan.automation.domain.repository.WorkflowRepository
 import com.titan.automation.engine.accessibility.GesturePriority
@@ -8,7 +10,7 @@ import com.titan.automation.engine.accessibility.MacroAccessibilityService
 import com.titan.automation.engine.capture.FrameProvider
 import com.titan.automation.engine.capture.TemplateRepository
 import com.titan.automation.engine.governor.ThermalGovernor
-import com.titan.automation.engine.ml.RLDecision
+import com.titan.automation.engine.governor.ThermalLevel
 import com.titan.automation.engine.ml.RLEngine
 import com.titan.automation.engine.ml.RewardOutcome
 import com.titan.automation.engine.vision.VisionEngine
@@ -201,6 +203,17 @@ class MacroEngine @Inject constructor(
     // State execution
     // ─────────────────────────────────────────────────────────────────────────
 
+    /**
+     * Execute one workflow state:
+     *   1. Capture frame
+     *   2. Evaluate conditional branches (IF/ELSE) — first match short-circuits
+     *   3. Vision match  (TEMPLATE or ORB based on [VisionMatchRule.matchMode])
+     *   4. OCR validation
+     *   5. Histogram validation (colour-based scene check)
+     *   6. RL decision → or deterministic action intent
+     *   7. Execute gesture
+     *   8. Cooldown + RL reward
+     */
     private suspend fun executeState(
         definition: WorkflowDefinition,
         state: WorkflowState,
@@ -210,64 +223,174 @@ class MacroEngine @Inject constructor(
         // 1. Capture frame
         val frame = frameProvider.latestFrame.first { it != null }!!.bitmap
 
-        // 2. Vision match
-        val visionResult = state.visionMatchRule?.let { rule ->
-            // Load template bitmap from assets — real app stores in TemplateRepository
-            val templateBitmap = loadTemplate(rule.templateId) ?: return StateResult(success = false)
-            visionEngine.findTemplate(frame, templateBitmap, rule)
+        // 2. Conditional branches — evaluated first; first match wins (IF/ELSE)
+        if (state.conditions.isNotEmpty()) {
+            val branchResult = evaluateConditions(definition, state, session, frame)
+            if (branchResult != null) return branchResult
         }
 
+        // 3. Vision match — TEMPLATE (default) or ORB (rotation/scale-invariant)
+        val visionResult = state.visionMatchRule?.let { rule ->
+            val templateBitmap = loadTemplate(rule.templateId) ?: return StateResult(success = false)
+            when (rule.matchMode) {
+                MatchMode.TEMPLATE -> visionEngine.findTemplate(frame, templateBitmap, rule)
+                MatchMode.ORB      -> visionEngine.matchOrb(frame, templateBitmap, rule)
+            }
+        }
         val visionSuccess = state.visionMatchRule == null || visionResult != null
 
-        // 3. OCR validation
-        val ocrResult = state.ocrScanRule?.let { rule ->
-            visionEngine.runOcr(frame, rule)
-        }
+        // 4. OCR validation
+        val ocrResult = state.ocrScanRule?.let { rule -> visionEngine.runOcr(frame, rule) }
         val ocrSuccess = state.ocrScanRule == null || ocrResult?.matched == true
 
-        if (!visionSuccess || !ocrSuccess) return StateResult(success = false)
+        // 5. Histogram validation — colour-based scene matching
+        val histSuccess = state.histogramScanRule?.let { rule ->
+            val refBitmap = loadTemplate(rule.referenceTemplateId)
+                ?: return StateResult(success = false)
+            val similarity = visionEngine.compareHistogram(frame, refBitmap, rule.region)
+            if (similarity < rule.minSimilarity) {
+                Log.d(TAG, "Histogram mismatch: ${"%.2f".format(similarity)} < ${rule.minSimilarity}")
+            }
+            similarity >= rule.minSimilarity
+        } ?: true
 
-        // 4. RL decision (if enabled for this state and by thermal governor)
-        val actionIntent: String
-        if (state.rlEnabled && thermal.rlEnabled) {
-            val available   = definition.actions.keys.toList()
-            val rlDecision  = rlEngine.getBestAction(session.currentState, available)
-            actionIntent    = rlDecision.action
+        if (!visionSuccess || !ocrSuccess || !histSuccess) return StateResult(success = false)
+
+        // 6. Determine action intent — RL overrides deterministic when enabled + thermal permits
+        val actionIntent: String = if (state.rlEnabled && thermal.rlEnabled) {
+            val available  = definition.actions.keys.toList()
+            rlEngine.getBestAction(session.currentState, available).action
         } else {
-            actionIntent = state.visionMatchRule?.actionIntent
+            state.visionMatchRule?.actionIntent
                 ?: state.ocrScanRule?.actionIntent
-                ?: state.conditions.firstOrNull()?.actionIntent
+                ?: state.histogramScanRule?.actionIntent
                 ?: return StateResult(success = false)
         }
 
-        // 5. Execute action
+        // 7. Execute action
         val actionDef = definition.actions[actionIntent] ?: return StateResult(success = false)
         val gestureOk = executeAction(actionDef, state.rlEnabled)
 
-        // 6. Cooldown
+        // 8. Cooldown
         if (state.cooldownMs > 0) delay(state.cooldownMs)
 
-        // 7. RL reward
+        // 9. RL reward update
         if (state.rlEnabled && thermal.rlEnabled) {
             val reward = rlEngine.shapeReward(
                 if (gestureOk) RewardOutcome.STATE_TRANSITION_SUCCESS else RewardOutcome.GESTURE_REJECTED,
                 session.stepCount
             )
             rlEngine.learn(
-                state      = session.currentState,
-                action     = actionIntent,
-                rawReward  = reward,
-                nextState  = state.onSuccess
+                state     = session.currentState,
+                action    = actionIntent,
+                rawReward = reward,
+                nextState = state.onSuccess
             )
         }
 
-        return StateResult(success = gestureOk, nextState = if (gestureOk) state.onSuccess else state.onFailure)
+        return StateResult(
+            success   = gestureOk,
+            nextState = if (gestureOk) state.onSuccess else state.onFailure
+        )
     }
 
+    /**
+     * Evaluate the [WorkflowState.conditions] list (IF/ELSE branching).
+     *
+     * Each [ConditionalBranch] specifies a condition, the action to take if it
+     * matches, and the next state to transition to. The first matching branch
+     * wins; subsequent branches are skipped.
+     *
+     * Supported condition types:
+     *  - VISION_MATCH    — template matching against [branch.value] template ID
+     *  - ORB_MATCH       — ORB keypoint match against [branch.value] template ID
+     *  - HISTOGRAM_MATCH — HSV histogram similarity against [branch.value] ref ID
+     *  - OCR_CONTAINS    — ML Kit OCR text regex match
+     *  - STATE_FLAG      — current state name equals [branch.value]
+     *  - BATTERY_BELOW   — battery % < [branch.value] (parsed as Int)
+     *  - THERMAL_ABOVE   — thermal level ≥ [branch.value] (ThermalLevel name)
+     */
+    private suspend fun evaluateConditions(
+        definition : WorkflowDefinition,
+        state      : WorkflowState,
+        session    : WorkflowSession,
+        frame      : android.graphics.Bitmap
+    ): StateResult? {
+        for (branch in state.conditions) {
+            val matches: Boolean = when (branch.conditionType) {
+
+                ConditionType.VISION_MATCH -> {
+                    val tmpl = loadTemplate(branch.value) ?: continue
+                    val rule = VisionMatchRule(
+                        templateId   = branch.value,
+                        actionIntent = branch.actionIntent,
+                        minConfidence = 0.80f
+                    )
+                    visionEngine.findTemplate(frame, tmpl, rule) != null
+                }
+
+                ConditionType.ORB_MATCH -> {
+                    val tmpl = loadTemplate(branch.value) ?: continue
+                    val rule = VisionMatchRule(
+                        templateId    = branch.value,
+                        actionIntent  = branch.actionIntent,
+                        matchMode     = MatchMode.ORB,
+                        minConfidence = 0.60f
+                    )
+                    visionEngine.matchOrb(frame, tmpl, rule) != null
+                }
+
+                ConditionType.HISTOGRAM_MATCH -> {
+                    val refBitmap = loadTemplate(branch.value) ?: continue
+                    visionEngine.compareHistogram(frame, refBitmap) >= 0.70f
+                }
+
+                ConditionType.OCR_CONTAINS -> {
+                    val rule = OcrScanRule(
+                        regexPattern = branch.value,
+                        actionIntent = branch.actionIntent
+                    )
+                    visionEngine.runOcr(frame, rule)?.matched == true
+                }
+
+                ConditionType.STATE_FLAG -> {
+                    session.currentState == branch.value
+                }
+
+                ConditionType.BATTERY_BELOW -> {
+                    val threshold = branch.value.toIntOrNull() ?: 20
+                    thermal.state.value.batteryPct < threshold
+                }
+
+                ConditionType.THERMAL_ABOVE -> {
+                    val threshold = ThermalLevel.values()
+                        .firstOrNull { it.name == branch.value }
+                        ?: ThermalLevel.MODERATE
+                    thermal.state.value.thermalLevel.ordinal >= threshold.ordinal
+                }
+            }
+
+            if (matches) {
+                val actionDef = definition.actions[branch.actionIntent]
+                if (actionDef != null) executeAction(actionDef, state.rlEnabled)
+                if (state.cooldownMs > 0) delay(state.cooldownMs)
+                Log.d(TAG, "Condition ${branch.conditionType}[${branch.value}] matched → ${branch.nextState}")
+                return StateResult(success = true, nextState = branch.nextState)
+            }
+        }
+        return null  // no branch matched — fall through to primary vision/ocr/histogram checks
+    }
+
+    /**
+     * Dispatch a single [ActionDefinition] gesture.
+     *
+     * MULTI_TOUCH  — two-pointer pinch/zoom gesture via [MacroAccessibilityService.dispatchMultiTouch]
+     * TYPE_TEXT    — sets text on the currently focused input node via AccessibilityNodeInfo ACTION_SET_TEXT
+     */
     private suspend fun executeAction(action: ActionDefinition, isRlManaged: Boolean): Boolean {
         val svc = MacroAccessibilityService.get() ?: return false
 
-        return when (action.interactionType) {
+        val ok = when (action.interactionType) {
             InteractionType.TAP -> svc.dispatchClick(
                 action.x, action.y,
                 if (isRlManaged) GesturePriority.HIGH else GesturePriority.NORMAL
@@ -279,19 +402,43 @@ class MacroEngine @Inject constructor(
                 action.x, action.y, action.endX, action.endY,
                 action.durationMs
             )
+            InteractionType.MULTI_TOUCH -> svc.dispatchMultiTouch(
+                action.x, action.y,
+                action.endX, action.endY,
+                action.durationMs
+            )
+            InteractionType.TYPE_TEXT -> {
+                // Inject text into the currently focused editable field via
+                // AccessibilityNodeInfo.ACTION_SET_TEXT (API 21+).
+                // Fallback: perform a tap first to ensure the field is focused.
+                val text = action.textInput ?: return false
+                val root = svc.rootInActiveWindow
+                val focused = root?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                    ?: run {
+                        // Focus not set — tap the target coordinates first
+                        svc.dispatchClick(action.x, action.y, GesturePriority.NORMAL)
+                        delay(300)
+                        svc.rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                    }
+                if (focused != null) {
+                    val args = Bundle()
+                    args.putCharSequence(
+                        AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text
+                    )
+                    focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+                } else {
+                    Log.w(TAG, "TYPE_TEXT: no focused input node found at (${action.x}, ${action.y})")
+                    false
+                }
+            }
             InteractionType.WAIT -> {
                 delay(action.durationMs)
                 true
             }
-            InteractionType.TYPE_TEXT,
-            InteractionType.MULTI_TOUCH -> {
-                // Extended gesture types — handled by gesture controller
-                Log.w(TAG, "Gesture type ${action.interactionType} requires extended handler")
-                false
-            }
-        }.also {
-            if (action.delayAfterMs > 0) delay(action.delayAfterMs)
         }
+
+        if (action.delayAfterMs > 0) delay(action.delayAfterMs)
+        return ok
     }
 
     // ─────────────────────────────────────────────────────────────────────────

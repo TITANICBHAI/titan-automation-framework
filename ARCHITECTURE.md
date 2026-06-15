@@ -71,55 +71,91 @@ ScreenCaptureService (10 FPS) ──→ CapturedFrame (StateFlow)
          ▼
 MacroEngine.executeState()
   1. captureService.latestFrame.first()          ← wait for fresh frame
-  2. visionEngine.findTemplate(frame, rule)      ← OpenCV multi-scale TM_CCOEFF_NORMED
-  3. visionEngine.runOcr(frame, ocrRule)         ← ML Kit OCR, regex match
-  4. rlEngine.getBestAction(state, actions)      ← ε-greedy Q-lookup
-  5. accessibility.dispatchSwipe/Tap(...)        ← GestureDescription Bézier path
-  6. rlEngine.learn(s, a, r, s')                 ← Q-update from replay batch
-  7. repository.saveSession(checkpoint)          ← Room + DataStore
-  8. branch to next state or retry
+  2. evaluateConditions(conditions[])            ← IF/ELSE branch list (first match wins)
+       ├── VISION_MATCH  → VisionEngine.findTemplate()
+       ├── ORB_MATCH     → VisionEngine.matchOrb()        ← rotation/scale-invariant
+       ├── HISTOGRAM_MATCH → VisionEngine.compareHistogram() ← colour-based scene ID
+       ├── OCR_CONTAINS  → VisionEngine.runOcr()
+       ├── STATE_FLAG    → session.currentState == value
+       ├── BATTERY_BELOW → ThermalGovernor.batteryPct
+       └── THERMAL_ABOVE → ThermalGovernor.thermalLevel
+  3. visionEngine.findTemplate / matchOrb (primary vision rule, if no branch matched)
+  4. visionEngine.runOcr(frame, ocrRule)         ← ML Kit OCR, regex match
+  5. visionEngine.compareHistogram(frame, ref)   ← histogram scan rule (optional)
+  6. rlEngine.getBestAction(state, actions)      ← ε-greedy Q-lookup (if rl_enabled)
+  7. accessibility.dispatchSwipe/Tap/TypeText()  ← GestureDescription Bézier path
+  8. rlEngine.learn(s, a, r, s')                 ← Q-update + SPA step penalty
+  9. repository.saveSession(checkpoint)          ← Room + DataStore
+ 10. branch to next state / retry / timeout-recovery
 ```
 
 ---
 
 ## Workflow DSL Schema
 
+Every state supports up to three parallel sensing rules plus a conditional branch list:
+
+| Field                | Type               | Purpose                                                 |
+|----------------------|--------------------|---------------------------------------------------------|
+| `vision_match_rule`  | `VisionMatchRule`  | Template or ORB match (set `match_mode: "ORB"`)        |
+| `ocr_scan_rule`      | `OcrScanRule`      | ML Kit OCR regex match in ROI                           |
+| `histogram_scan_rule`| `HistogramScanRule`| HSV histogram similarity vs reference screenshot        |
+| `conditions`         | `ConditionalBranch[]` | IF/ELSE branch list — first match short-circuits    |
+
+### VisionMatchRule — match modes
+
+```json
+{ "template_id": "icon",  "match_mode": "TEMPLATE", "min_confidence": 0.85, "action_intent": "TAP_IT" }
+{ "template_id": "logo",  "match_mode": "ORB",      "min_confidence": 0.60, "action_intent": "TAP_IT" }
+```
+
+- `TEMPLATE` (default) — `TM_CCOEFF_NORMED` multi-scale; sensitive to rotation/scale
+- `ORB` — ORB keypoints + BFMatcher Hamming + Lowe ratio test; **rotation/scale-invariant**
+
+### HistogramScanRule — colour-based scene detection
+
 ```json
 {
-  "workflow_id": "my_workflow",
-  "version": 1,
-  "initial_state": "STATE_A",
-  "global_timeout_ms": 300000,
-  "rl_global_enabled": false,
-  "states": {
-    "STATE_A": {
-      "rl_enabled": false,
-      "max_retries": 3,
-      "cooldown_ms": 500,
-      "timeout_ms": 10000,
-      "on_success": "STATE_B",
-      "on_failure": "END",
-      "vision_match_rule": {
-        "template_id": "my_template",
-        "min_confidence": 0.85,
-        "multi_scale": true,
-        "action_intent": "MY_ACTION"
-      }
-    },
-    "STATE_B": { ... }
-  },
-  "actions": {
-    "MY_ACTION": {
-      "interaction_type": "TAP",
-      "x": 0.5, "y": 0.5,
-      "delay_after_ms": 300
-    }
+  "histogram_scan_rule": {
+    "reference_template_id": "home_screen_reference",
+    "region": { "left": 0, "top": 0, "right": 1080, "bottom": 400 },
+    "min_similarity": 0.72,
+    "action_intent": "WAIT_NO_ACTION"
   }
 }
 ```
 
-All coordinates are normalised `[0.0 – 1.0]` screen-space. The engine converts to
-physical pixels at dispatch time, so workflows are resolution-independent.
+Compares 2-D HSV histogram (50 H × 60 S bins) of current frame vs reference using
+`HISTCMP_CORREL`. Use for scene/state detection without a pixel-perfect template.
+
+### ConditionalBranch — IF/ELSE
+
+```json
+{
+  "conditions": [
+    { "condition_type": "OCR_CONTAINS",    "value": "Game Over",         "action_intent": "TAP_RETRY",  "next_state": "PLAYING" },
+    { "condition_type": "VISION_MATCH",    "value": "obstacle_left",     "action_intent": "SWIPE_RIGHT","next_state": "PLAYING" },
+    { "condition_type": "ORB_MATCH",       "value": "loading_spinner",   "action_intent": "WAIT",       "next_state": "LOADING" },
+    { "condition_type": "HISTOGRAM_MATCH", "value": "victory_screen_ref","action_intent": "COLLECT_REWARD","next_state": "REWARD" },
+    { "condition_type": "BATTERY_BELOW",   "value": "10",                "action_intent": "WAIT",       "next_state": "END" },
+    { "condition_type": "THERMAL_ABOVE",   "value": "SEVERE",            "action_intent": "WAIT",       "next_state": "END" }
+  ]
+}
+```
+
+### Action types
+
+| `interaction_type` | Required fields       | Notes                                     |
+|--------------------|----------------------|-------------------------------------------|
+| `TAP`              | x, y                 | Bézier tap with Gaussian noise            |
+| `LONG_PRESS`       | x, y, duration_ms    | Hold gesture                              |
+| `SWIPE`            | x, y, end_x, end_y   | Cubic Bézier curve, configurable duration |
+| `MULTI_TOUCH`      | x, y, end_x, end_y   | Two-pointer pinch/zoom gesture            |
+| `TYPE_TEXT`        | x, y, text_input     | AccessibilityNodeInfo.ACTION_SET_TEXT     |
+| `WAIT`             | duration_ms          | Sleep without gesture                     |
+
+All coordinates are **absolute pixels** in the workflow JSON. The engine converts to
+normalised [0..1] screen-space at dispatch time, so templates are DPI-independent.
 
 ---
 
