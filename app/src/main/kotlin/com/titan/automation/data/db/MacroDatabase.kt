@@ -108,21 +108,44 @@ interface TemplateDao {
     suspend fun getByPlugin(pluginId: String): List<TemplateEntity>
 }
 
-// ── Database — version 2 (adds simple_macros table) ──────────────────────────
+// ── QTable DAO ────────────────────────────────────────────────────────────────
+
+@Dao
+interface QTableDao {
+    @androidx.room.Upsert
+    suspend fun upsertAll(entries: List<com.titan.automation.data.db.entity.QTableEntity>)
+
+    @Query("SELECT * FROM q_table_entries")
+    suspend fun getAll(): List<com.titan.automation.data.db.entity.QTableEntity>
+
+    @Query("SELECT * FROM q_table_entries WHERE stateHash = :hash LIMIT 1")
+    suspend fun getByHash(hash: String): com.titan.automation.data.db.entity.QTableEntity?
+
+    @Query("DELETE FROM q_table_entries")
+    suspend fun clearAll()
+
+    @Query("SELECT COUNT(*) FROM q_table_entries")
+    suspend fun count(): Int
+}
+
+// ── Database — version 3 (adds q_table_entries) ───────────────────────────────
 
 @Database(
     entities   = [
         WorkflowEntity::class,
         SessionEntity::class,
         TemplateEntity::class,
-        SimpleMacroEntity::class
+        SimpleMacroEntity::class,
+        com.titan.automation.data.db.entity.QTableEntity::class
     ],
-    version    = 2,
+    version    = 3,
     exportSchema = true
 )
+@androidx.room.TypeConverters(com.titan.automation.data.db.entity.FloatArrayConverter::class)
 abstract class MacroDatabase : RoomDatabase() {
     abstract fun workflowDao(): WorkflowDao
     abstract fun sessionDao(): SessionDao
     abstract fun templateDao(): TemplateDao
     abstract fun simpleMacroDao(): SimpleMacroDao
+    abstract fun qTableDao(): QTableDao
 }
