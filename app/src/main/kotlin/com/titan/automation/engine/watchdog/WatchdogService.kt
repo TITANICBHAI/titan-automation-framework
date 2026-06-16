@@ -198,17 +198,3 @@ class WatchdogService : Service() {
     }
 }
 
-// ── Boot receiver — restarts watchdog after device reboot ────────────────────
-
-class BootReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            val svc = Intent(context, WatchdogService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(svc)
-            } else {
-                context.startService(svc)
-            }
-        }
-    }
-}

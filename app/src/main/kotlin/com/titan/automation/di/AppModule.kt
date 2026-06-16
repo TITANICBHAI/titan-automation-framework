@@ -15,6 +15,7 @@ import com.titan.automation.debug.GestureTimeline
 import com.titan.automation.domain.repository.SimpleMacroRepository
 import com.titan.automation.domain.repository.WorkflowRepository
 import com.titan.automation.engine.workflow.WorkflowParser
+import com.titan.automation.core.TitanLogger
 import com.titan.automation.performance.BatteryMonitor
 import com.titan.automation.performance.PerformanceMonitor
 import dagger.Binds
@@ -86,6 +87,18 @@ object CoroutineModule {
     @Provides
     @Singleton
     fun provideTitanDispatchers(): TitanDispatchers = TitanDispatchers()
+}
+
+// ── Logging ───────────────────────────────────────────────────────────────────
+
+@Module
+@InstallIn(SingletonComponent::class)
+object LoggingModule {
+
+    @Provides
+    @Singleton
+    fun provideTitanLogger(): TitanLogger = TitanLogger()
+
 }
 
 // ── Debug & telemetry ─────────────────────────────────────────────────────────

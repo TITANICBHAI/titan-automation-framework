@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import android.util.Log
+import com.titan.automation.core.TitanLogger
 import com.titan.automation.engine.capture.NativeBridge
 import com.titan.automation.engine.watchdog.AnrWatchdog
 import com.titan.automation.monitoring.CrashRecoveryManager
@@ -23,6 +24,7 @@ class TitanApplication : Application() {
     @Inject lateinit var telemetry: TelemetryManager
     @Inject lateinit var firstRunSeeder: FirstRunSeeder
     @Inject lateinit var crashRecovery: CrashRecoveryManager
+    @Inject lateinit var logger: TitanLogger
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -58,6 +60,10 @@ class TitanApplication : Application() {
                 Log.e(TAG, "Giving up after $crashCount crashes — showing error UI")
             }
         })
+
+        // Initialise structured logger — points file sink at app's files dir
+        logger.init(filesDir)
+        logger.i(TAG, "TitanApplication started (filesDir=${filesDir.absolutePath})")
 
         telemetry.init()
 
