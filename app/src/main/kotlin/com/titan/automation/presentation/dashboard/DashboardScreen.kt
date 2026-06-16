@@ -108,10 +108,10 @@ fun DashboardScreen(
                 items(state.workflows) { workflow ->
                     WorkflowCard(
                         workflow   = workflow,
-                        isRunning  = workflow.id in state.runningWorkflows,
-                        onStart    = { viewModel.startWorkflow(workflow.id) },
-                        onStop     = { viewModel.stopWorkflow(workflow.id) },
-                        onEdit     = { onNavigateToEditor(workflow.id) }
+                        isRunning  = workflow.workflowId in state.runningWorkflows,
+                        onStart    = { viewModel.startWorkflow(workflow.workflowId) },
+                        onStop     = { viewModel.stopWorkflow(workflow.workflowId) },
+                        onEdit     = { onNavigateToEditor(workflow.workflowId) }
                     )
                     Spacer(Modifier.height(8.dp))
                 }
@@ -158,7 +158,7 @@ private fun WorkflowCard(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(workflow.id, fontWeight = FontWeight.SemiBold)
+                Text(workflow.workflowId, fontWeight = FontWeight.SemiBold)
                 Text(
                     "${workflow.states.size} steps",
                     fontSize = 11.sp,

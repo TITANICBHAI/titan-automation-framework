@@ -67,7 +67,7 @@ class WorkflowEditorViewModel @Inject constructor(
                         saveSuccess    = true,
                         isDirty        = false,
                         parsedWorkflow = result.definition,
-                        workflowId     = result.definition.id
+                        workflowId     = result.definition.workflowId
                     )}
                 }
                 is ParseWorkflowUseCase.Result.ParseError -> {
@@ -135,30 +135,41 @@ class WorkflowEditorViewModel @Inject constructor(
     companion object {
         private val TEMPLATE_JSON = """
             {
-              "version": "1.2",
-              "id": "my-workflow-001",
-              "name": "My Workflow",
-              "description": "Describe what this workflow does",
-              "initial_state": "find-element",
+              "workflow_id": "my-workflow-001",
+              "version": 1,
+              "initial_state": "FIND_ELEMENT",
+              "global_timeout_ms": 120000,
+              "rl_global_enabled": false,
               "states": {
-                "find-element": {
+                "FIND_ELEMENT": {
+                  "rl_enabled": false,
+                  "max_retries": 5,
+                  "cooldown_ms": 800,
+                  "timeout_ms": 10000,
+                  "on_success": "TAP_ELEMENT",
+                  "on_failure": "FIND_ELEMENT",
                   "vision_match_rule": {
-                    "template_path": "templates/element.png",
-                    "threshold": 0.82
-                  },
-                  "timeout_ms": 5000,
-                  "transitions": [
-                    {"condition": "VISION_MATCH", "target_state": "click-element"},
-                    {"condition": "TIMEOUT",      "target_state": "find-element"}
-                  ]
+                    "template_id": "element",
+                    "min_confidence": 0.82,
+                    "multi_scale": false,
+                    "action_intent": "WAIT_FOR_MATCH"
+                  }
                 },
-                "click-element": {
-                  "actions": [
-                    {"type": "TAP", "x": 0.5, "y": 0.75}
-                  ],
-                  "transitions": [
-                    {"condition": "ALWAYS", "target_state": "find-element"}
-                  ]
+                "TAP_ELEMENT": {
+                  "rl_enabled": false,
+                  "max_retries": 2,
+                  "cooldown_ms": 500,
+                  "timeout_ms": 5000,
+                  "on_success": "FIND_ELEMENT",
+                  "on_failure": "FIND_ELEMENT"
+                }
+              },
+              "actions": {
+                "WAIT_FOR_MATCH": {
+                  "interaction_type": "TAP",
+                  "x": 0.5,
+                  "y": 0.5,
+                  "delay_after_ms": 300
                 }
               }
             }
