@@ -101,6 +101,11 @@ class TitanApplication : Application() {
                 CHANNEL_WATCHDOG,
                 getString(R.string.notification_channel_watchdog),
                 NotificationManager.IMPORTANCE_MIN
+            ).apply { setShowBadge(false) },
+            NotificationChannel(
+                CHANNEL_CONTROL,
+                getString(R.string.notification_channel_control),
+                NotificationManager.IMPORTANCE_LOW
             ).apply { setShowBadge(false) }
         ).forEach { nm.createNotificationChannel(it) }
     }
@@ -110,5 +115,6 @@ class TitanApplication : Application() {
         const val CHANNEL_ENGINE   = "titan_engine"
         const val CHANNEL_CAPTURE  = "titan_capture"
         const val CHANNEL_WATCHDOG = "titan_watchdog"
+        const val CHANNEL_CONTROL  = "titan_control"
     }
 }

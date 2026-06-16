@@ -431,6 +431,9 @@ private fun MacroEditorScreen(
             onAddWait          = { viewModel.addAction(viewModel.buildNewWait());           showAddMenu = false },
             onAddWaitForImage  = { viewModel.addAction(viewModel.buildNewWaitForImage());  showAddMenu = false },
             onAddWaitForText   = { viewModel.addAction(viewModel.buildNewWaitForOcrText()); showAddMenu = false },
+            onAddScroll        = { viewModel.addAction(viewModel.buildNewScroll());         showAddMenu = false },
+            onAddKeyPress      = { viewModel.addAction(viewModel.buildNewKeyPress());       showAddMenu = false },
+            onAddRepeatTap     = { viewModel.addAction(viewModel.buildNewRepeatTap());      showAddMenu = false },
             onDismiss          = { showAddMenu = false }
         )
     }
@@ -499,12 +502,15 @@ private fun StepCard(
     onMoveDown: () -> Unit
 ) {
     val typeColor = when (action.type) {
-        SimpleActionType.TAP              -> CYAN
-        SimpleActionType.LONG_PRESS       -> AMBER
-        SimpleActionType.SWIPE            -> PURPLE
-        SimpleActionType.WAIT             -> MUTED
-        SimpleActionType.WAIT_FOR_IMAGE   -> TEAL
+        SimpleActionType.TAP               -> CYAN
+        SimpleActionType.LONG_PRESS        -> AMBER
+        SimpleActionType.SWIPE             -> PURPLE
+        SimpleActionType.WAIT              -> MUTED
+        SimpleActionType.WAIT_FOR_IMAGE    -> TEAL
         SimpleActionType.WAIT_FOR_OCR_TEXT -> GREEN
+        SimpleActionType.SCROLL            -> Color(0xFF4FC3F7)
+        SimpleActionType.KEY_PRESS         -> Color(0xFFFFAB40)
+        SimpleActionType.REPEAT_TAP        -> Color(0xFFE040FB)
     }
 
     Card(
@@ -557,6 +563,12 @@ private fun StepCard(
                         "template: '${action.templateId.ifBlank { "?" }}'  timeout ${action.conditionTimeoutMs / 1000}s"
                     SimpleActionType.WAIT_FOR_OCR_TEXT ->
                         "find: '${action.ocrPattern.ifBlank { "?" }}'  timeout ${action.conditionTimeoutMs / 1000}s"
+                    SimpleActionType.SCROLL ->
+                        "${action.scrollDirection}  ${(action.scrollDistance * 100).toInt()}% of screen"
+                    SimpleActionType.KEY_PRESS ->
+                        "key: ${action.keyCode}"
+                    SimpleActionType.REPEAT_TAP ->
+                        "(${pct(action.x)}, ${pct(action.y)})  ×${action.repeatCount}  @${action.repeatIntervalMs}ms"
                 }
                 Text(coordText, color = MUTED, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                 if (action.delayAfterMs > 0 &&
@@ -599,6 +611,9 @@ private fun AddStepMenu(
     onAddWait: () -> Unit,
     onAddWaitForImage: () -> Unit,
     onAddWaitForText: () -> Unit,
+    onAddScroll: () -> Unit,
+    onAddKeyPress: () -> Unit,
+    onAddRepeatTap: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -609,12 +624,15 @@ private fun AddStepMenu(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 data class StepOption(val label: String, val emoji: String, val color: Color, val onClick: () -> Unit)
                 listOf(
-                    StepOption("Tap",                "👆", CYAN,   onAddTap),
-                    StepOption("Long Press",         "✋", AMBER,  onAddLongPress),
-                    StepOption("Swipe",              "👉", PURPLE, onAddSwipe),
-                    StepOption("Wait / Delay",       "⏱", MUTED,  onAddWait),
-                    StepOption("Wait for Image",     "👁", TEAL,   onAddWaitForImage),
-                    StepOption("Wait for Text (OCR)","🔤", GREEN,  onAddWaitForText),
+                    StepOption("Tap",                "👆", CYAN,              onAddTap),
+                    StepOption("Long Press",         "✋", AMBER,             onAddLongPress),
+                    StepOption("Swipe",              "👉", PURPLE,            onAddSwipe),
+                    StepOption("Repeat Tap",         "🔁", Color(0xFFE040FB), onAddRepeatTap),
+                    StepOption("Scroll",             "⬇", Color(0xFF4FC3F7), onAddScroll),
+                    StepOption("Key Press",          "🔑", Color(0xFFFFAB40), onAddKeyPress),
+                    StepOption("Wait / Delay",       "⏱", MUTED,             onAddWait),
+                    StepOption("Wait for Image",     "👁", TEAL,              onAddWaitForImage),
+                    StepOption("Wait for Text (OCR)","🔤", GREEN,             onAddWaitForText),
                 ).forEach { opt ->
                     OutlinedButton(
                         onClick  = opt.onClick,
@@ -655,6 +673,12 @@ private fun StepEditorDialog(
     var ocrPattern        by remember { mutableStateOf(action.ocrPattern) }
     var conditionTimeout  by remember { mutableLongStateOf(action.conditionTimeoutMs / 1000L) } // stored in seconds
     var tapWhenFound      by remember { mutableStateOf(action.tapWhenFound) }
+    // ── New action type fields ────────────────────────────────────────────────
+    var scrollDirection  by remember { mutableStateOf(action.scrollDirection) }
+    var scrollDistance   by remember { mutableFloatStateOf(action.scrollDistance) }
+    var keyCode          by remember { mutableStateOf(action.keyCode) }
+    var repeatCount      by remember { mutableIntStateOf(action.repeatCount) }
+    var repeatIntervalMs by remember { mutableLongStateOf(action.repeatIntervalMs) }
 
     val isConditional = type == SimpleActionType.WAIT_FOR_IMAGE || type == SimpleActionType.WAIT_FOR_OCR_TEXT
 
@@ -695,9 +719,10 @@ private fun StepEditorDialog(
                     modifier      = Modifier.fillMaxWidth()
                 )
 
-                // ── Gesture coordinates (TAP / LONG_PRESS / SWIPE) ────────────
+                // ── Gesture coordinates (TAP / LONG_PRESS / SWIPE / REPEAT_TAP) ──
 
-                if (!isConditional && type != SimpleActionType.WAIT) {
+                if (!isConditional && type != SimpleActionType.WAIT &&
+                    type != SimpleActionType.SCROLL && type != SimpleActionType.KEY_PRESS) {
                     Text("Coordinates (0–100%)", color = MUTED, fontSize = 12.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
@@ -807,9 +832,87 @@ private fun StepEditorDialog(
                     )
                 }
 
-                // ── Duration / delay (non-conditional, non-conditional) ───────
+                // ── SCROLL fields ─────────────────────────────────────────────
 
-                if (!isConditional) {
+                if (type == SimpleActionType.SCROLL) {
+                    HorizontalDivider(color = BORDER)
+                    Text("Direction", color = Color(0xFF4FC3F7), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                    ) {
+                        listOf("UP", "DOWN", "LEFT", "RIGHT").forEach { dir ->
+                            FilterChip(
+                                selected = scrollDirection == dir,
+                                onClick  = { scrollDirection = dir; label = "Scroll $dir" },
+                                label    = { Text(dir, fontSize = 10.sp) },
+                                colors   = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Color(0xFF4FC3F7).copy(alpha = 0.2f),
+                                    selectedLabelColor     = Color(0xFF4FC3F7)
+                                )
+                            )
+                        }
+                    }
+                    Text("Distance: ${(scrollDistance * 100).toInt()}% of screen", color = MUTED, fontSize = 12.sp)
+                    Slider(
+                        value         = scrollDistance,
+                        onValueChange = { scrollDistance = it },
+                        valueRange    = 0.1f..0.9f,
+                        steps         = 15,
+                        colors        = SliderDefaults.colors(thumbColor = Color(0xFF4FC3F7), activeTrackColor = Color(0xFF4FC3F7))
+                    )
+                }
+
+                // ── KEY_PRESS fields ───────────────────────────────────────────
+
+                if (type == SimpleActionType.KEY_PRESS) {
+                    HorizontalDivider(color = BORDER)
+                    Text("Key", color = Color(0xFFFFAB40), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                    ) {
+                        listOf("BACK", "HOME", "RECENTS", "NOTIFICATIONS", "VOL_UP", "VOL_DOWN").forEach { key ->
+                            FilterChip(
+                                selected = keyCode == key,
+                                onClick  = { keyCode = key; label = "Key: ${key.replace('_', ' ')}" },
+                                label    = { Text(key.replace('_', ' '), fontSize = 9.sp) },
+                                colors   = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Color(0xFFFFAB40).copy(alpha = 0.2f),
+                                    selectedLabelColor     = Color(0xFFFFAB40)
+                                )
+                            )
+                        }
+                    }
+                }
+
+                // ── REPEAT_TAP fields ──────────────────────────────────────────
+
+                if (type == SimpleActionType.REPEAT_TAP) {
+                    HorizontalDivider(color = BORDER)
+                    Text("Rapid Tap", color = Color(0xFFE040FB), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Tap count: $repeatCount", color = MUTED, fontSize = 12.sp)
+                    Slider(
+                        value         = repeatCount.toFloat(),
+                        onValueChange = { repeatCount = it.toInt() },
+                        valueRange    = 1f..20f,
+                        steps         = 18,
+                        colors        = SliderDefaults.colors(thumbColor = Color(0xFFE040FB), activeTrackColor = Color(0xFFE040FB))
+                    )
+                    Text("Interval between taps: ${repeatIntervalMs}ms", color = MUTED, fontSize = 12.sp)
+                    Slider(
+                        value         = repeatIntervalMs.toFloat(),
+                        onValueChange = { repeatIntervalMs = it.toLong() },
+                        valueRange    = 16f..500f,
+                        steps         = 0,
+                        colors        = SliderDefaults.colors(thumbColor = Color(0xFFE040FB), activeTrackColor = Color(0xFFE040FB))
+                    )
+                }
+
+                // ── Duration / delay ───────────────────────────────────────────
+
+                if (!isConditional && type != SimpleActionType.SCROLL &&
+                    type != SimpleActionType.KEY_PRESS && type != SimpleActionType.REPEAT_TAP) {
                     val durLabel = when (type) {
                         SimpleActionType.WAIT       -> "Wait: ${durationMs}ms"
                         SimpleActionType.LONG_PRESS -> "Hold: ${durationMs}ms"
@@ -823,17 +926,17 @@ private fun StepEditorDialog(
                         steps         = 0,
                         colors        = SliderDefaults.colors(thumbColor = CYAN, activeTrackColor = CYAN)
                     )
+                }
 
-                    if (type != SimpleActionType.WAIT) {
-                        Text("Delay after: ${delayAfterMs}ms", color = MUTED, fontSize = 12.sp)
-                        Slider(
-                            value         = delayAfterMs.toFloat(),
-                            onValueChange = { delayAfterMs = it.toLong() },
-                            valueRange    = 0f..5000f,
-                            steps         = 0,
-                            colors        = SliderDefaults.colors(thumbColor = AMBER, activeTrackColor = AMBER)
-                        )
-                    }
+                if (!isConditional && type != SimpleActionType.WAIT) {
+                    Text("Delay after: ${delayAfterMs}ms", color = MUTED, fontSize = 12.sp)
+                    Slider(
+                        value         = delayAfterMs.toFloat(),
+                        onValueChange = { delayAfterMs = it.toLong() },
+                        valueRange    = 0f..5000f,
+                        steps         = 0,
+                        colors        = SliderDefaults.colors(thumbColor = AMBER, activeTrackColor = AMBER)
+                    )
                 }
 
                 // ── Buttons ───────────────────────────────────────────────────
@@ -865,7 +968,12 @@ private fun StepEditorDialog(
                                 minConfidence       = minConfidence,
                                 ocrPattern          = ocrPattern,
                                 conditionTimeoutMs  = conditionTimeout * 1000L,
-                                tapWhenFound        = tapWhenFound
+                                tapWhenFound        = tapWhenFound,
+                                scrollDirection     = scrollDirection,
+                                scrollDistance      = scrollDistance,
+                                keyCode             = keyCode,
+                                repeatCount         = repeatCount,
+                                repeatIntervalMs    = repeatIntervalMs
                             ))
                         },
                         modifier = Modifier.weight(1f),

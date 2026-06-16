@@ -256,6 +256,19 @@ class MacroBuilderViewModel @Inject constructor(
         UUID.randomUUID().toString(), SimpleActionType.WAIT_FOR_OCR_TEXT,
         ocrPattern = "", conditionTimeoutMs = 15_000L, label = "Wait for Text"
     )
+    fun buildNewScroll() = SimpleAction(
+        UUID.randomUUID().toString(), SimpleActionType.SCROLL,
+        scrollDirection = "DOWN", scrollDistance = 0.5f,
+        durationMs = 0L, delayAfterMs = 300L, label = "Scroll Down"
+    )
+    fun buildNewKeyPress() = SimpleAction(
+        UUID.randomUUID().toString(), SimpleActionType.KEY_PRESS,
+        keyCode = "BACK", durationMs = 0L, delayAfterMs = 300L, label = "Key: Back"
+    )
+    fun buildNewRepeatTap() = SimpleAction(
+        UUID.randomUUID().toString(), SimpleActionType.REPEAT_TAP,
+        repeatCount = 5, repeatIntervalMs = 80L, delayAfterMs = 300L, label = "Repeat Tap ×5"
+    )
 
     fun loopModeOptions()     = LoopMode.values().toList()
     fun scheduleModeOptions() = ScheduleMode.values().toList()

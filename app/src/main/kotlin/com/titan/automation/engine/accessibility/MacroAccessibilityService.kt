@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
+import android.media.AudioManager
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.PriorityBlockingQueue
@@ -346,6 +347,72 @@ class MacroAccessibilityService : AccessibilityService() {
     // Singleton access (engine components need to post gestures without
     // going through DI since the service is framework-instantiated)
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Scroll content in [direction] by simulating a swipe gesture.
+     *
+     * Direction semantics match the user's intent (what content they want to reveal):
+     * - "DOWN"  → see content below  → finger moves UP on screen
+     * - "UP"    → see content above  → finger moves DOWN on screen
+     * - "LEFT"  → see content left   → finger moves RIGHT on screen
+     * - "RIGHT" → see content right  → finger moves LEFT on screen
+     *
+     * [distance] is a normalized fraction [0.05–0.9] of screen dimension to travel.
+     * [centerNx/Ny] is the normalized centre of the scroll gesture.
+     */
+    fun dispatchScroll(
+        direction: String,
+        distance: Float = 0.45f,
+        centerNx: Float = 0.5f,
+        centerNy: Float = 0.5f
+    ): Boolean {
+        val half = (distance / 2f).coerceIn(0.05f, 0.45f)
+        return when (direction.uppercase()) {
+            "DOWN"  -> dispatchSwipe(
+                centerNx, (centerNy + half).coerceAtMost(0.95f),
+                centerNx, (centerNy - half).coerceAtLeast(0.05f), 350L
+            )
+            "UP"    -> dispatchSwipe(
+                centerNx, (centerNy - half).coerceAtLeast(0.05f),
+                centerNx, (centerNy + half).coerceAtMost(0.95f), 350L
+            )
+            "LEFT"  -> dispatchSwipe(
+                (centerNx + half).coerceAtMost(0.95f), centerNy,
+                (centerNx - half).coerceAtLeast(0.05f), centerNy, 350L
+            )
+            "RIGHT" -> dispatchSwipe(
+                (centerNx - half).coerceAtLeast(0.05f), centerNy,
+                (centerNx + half).coerceAtMost(0.95f), centerNy, 350L
+            )
+            else    -> dispatchSwipe(
+                centerNx, (centerNy + half).coerceAtMost(0.95f),
+                centerNx, (centerNy - half).coerceAtLeast(0.05f), 350L
+            )
+        }
+    }
+
+    /**
+     * Perform a system key action.
+     * BACK / HOME / RECENTS / NOTIFICATIONS use [performGlobalAction].
+     * VOL_UP / VOL_DOWN adjust [AudioManager.STREAM_MUSIC] volume silently.
+     */
+    fun performKeyAction(keyCode: String): Boolean = when (keyCode.uppercase()) {
+        "HOME"          -> performGlobalAction(GLOBAL_ACTION_HOME)
+        "BACK"          -> performGlobalAction(GLOBAL_ACTION_BACK)
+        "RECENTS"       -> performGlobalAction(GLOBAL_ACTION_RECENTS)
+        "NOTIFICATIONS" -> performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
+        "VOL_UP"        -> {
+            (getSystemService(AUDIO_SERVICE) as? AudioManager)
+                ?.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0)
+            true
+        }
+        "VOL_DOWN"      -> {
+            (getSystemService(AUDIO_SERVICE) as? AudioManager)
+                ?.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0)
+            true
+        }
+        else            -> false
+    }
 
     companion object {
         @Volatile private var instance: MacroAccessibilityService? = null

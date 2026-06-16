@@ -39,31 +39,48 @@ data class SimpleAction(
     val ocrRegionW: Float = 1f,
     val ocrRegionH: Float = 1f,
     val conditionTimeoutMs: Long = 15_000L, // fail-safe timeout for conditional steps
-    val tapWhenFound: Boolean = false       // WAIT_FOR_IMAGE: also tap the matched location
+    val tapWhenFound: Boolean = false,      // WAIT_FOR_IMAGE: also tap the matched location
+    // ── Scroll fields ─────────────────────────────────────────────────────────
+    val scrollDirection: String = "DOWN",    // UP / DOWN / LEFT / RIGHT
+    val scrollDistance: Float = 0.5f,        // 0.05–0.9: fraction of screen to scroll
+    // ── Key press fields ──────────────────────────────────────────────────────
+    val keyCode: String = "BACK",            // BACK / HOME / RECENTS / NOTIFICATIONS / VOL_UP / VOL_DOWN
+    // ── Repeat tap fields ─────────────────────────────────────────────────────
+    val repeatCount: Int = 5,                // number of rapid taps
+    val repeatIntervalMs: Long = 80L         // ms between taps (scaled by speedMultiplier)
 )
 
 @Serializable
 enum class SimpleActionType {
     TAP, LONG_PRESS, SWIPE, WAIT,
     WAIT_FOR_IMAGE,    // pause until a template appears on screen (VisionEngine)
-    WAIT_FOR_OCR_TEXT; // pause until OCR finds matching text on screen
+    WAIT_FOR_OCR_TEXT, // pause until OCR finds matching text on screen
+    SCROLL,            // swipe-based content scroll (UP / DOWN / LEFT / RIGHT)
+    KEY_PRESS,         // system key action (HOME / BACK / RECENTS / VOL_UP / VOL_DOWN)
+    REPEAT_TAP;        // rapid multi-tap at same location (N times)
 
     fun displayName() = when (this) {
-        TAP              -> "Tap"
-        LONG_PRESS       -> "Long Press"
-        SWIPE            -> "Swipe"
-        WAIT             -> "Wait"
-        WAIT_FOR_IMAGE   -> "Wait for Image"
+        TAP               -> "Tap"
+        LONG_PRESS        -> "Long Press"
+        SWIPE             -> "Swipe"
+        WAIT              -> "Wait"
+        WAIT_FOR_IMAGE    -> "Wait for Image"
         WAIT_FOR_OCR_TEXT -> "Wait for Text"
+        SCROLL            -> "Scroll"
+        KEY_PRESS         -> "Key Press"
+        REPEAT_TAP        -> "Repeat Tap"
     }
 
     fun emoji() = when (this) {
-        TAP              -> "👆"
-        LONG_PRESS       -> "✋"
-        SWIPE            -> "👉"
-        WAIT             -> "⏱"
-        WAIT_FOR_IMAGE   -> "👁"
+        TAP               -> "👆"
+        LONG_PRESS        -> "✋"
+        SWIPE             -> "👉"
+        WAIT              -> "⏱"
+        WAIT_FOR_IMAGE    -> "👁"
         WAIT_FOR_OCR_TEXT -> "🔤"
+        SCROLL            -> "⬇"
+        KEY_PRESS         -> "🔑"
+        REPEAT_TAP        -> "🔁"
     }
 }
 

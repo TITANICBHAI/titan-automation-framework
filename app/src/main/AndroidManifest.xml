@@ -93,6 +93,27 @@
             </intent-filter>
         </receiver>
 
+        <!-- ── Control Notification action receiver ──────────────── -->
+        <receiver
+            android:name=".engine.notification.ControlActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.titan.automation.ACTION_STOP_ALL" />
+            </intent-filter>
+        </receiver>
+
+        <!-- ── Quick Settings Tile (API 24+) ─────────────────────── -->
+        <service
+            android:name=".engine.tile.AutomationTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_titan"
+            android:label="TITAN"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Required on Android 14+ when any service uses specialUse -->
         <property
             android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"

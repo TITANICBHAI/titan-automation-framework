@@ -33,6 +33,7 @@ import androidx.lifecycle.*
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.titan.automation.domain.model.WorkflowSession
+import com.titan.automation.engine.notification.ControlNotificationManager
 import com.titan.automation.engine.playback.SimplePlaybackEngine
 import com.titan.automation.engine.recorder.TouchRecorder
 import com.titan.automation.engine.workflow.MacroEngine
@@ -58,11 +59,12 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class OverlayService : Service() {
 
-    @Inject lateinit var eventBus       : TitanEventBus
-    @Inject lateinit var macroEngine    : MacroEngine
-    @Inject lateinit var touchRecorder  : TouchRecorder
-    @Inject lateinit var simplePlayback : SimplePlaybackEngine
-    @Inject lateinit var coordPicker    : CoordinatePicker
+    @Inject lateinit var eventBus             : TitanEventBus
+    @Inject lateinit var macroEngine          : MacroEngine
+    @Inject lateinit var touchRecorder        : TouchRecorder
+    @Inject lateinit var simplePlayback       : SimplePlaybackEngine
+    @Inject lateinit var coordPicker          : CoordinatePicker
+    @Inject lateinit var controlNotifications : ControlNotificationManager
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var windowManager: WindowManager
@@ -78,6 +80,7 @@ class OverlayService : Service() {
     private val isRunning    = mutableStateOf(false)
     private val isRecording  = mutableStateOf(false)  // TouchRecorder state mirrored here
     private val showDots     = mutableStateOf(true)   // tap-dot visibility
+    private val runtimeSpeed = mutableStateOf(1.0f)   // overlay speed multiplier override
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -87,6 +90,7 @@ class OverlayService : Service() {
         createOverlayWindow()
         subscribeToEvents()
         mirrorRecordingState()
+        controlNotifications.start()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
@@ -94,6 +98,7 @@ class OverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        controlNotifications.release()
         scope.cancel()
         overlayView?.let {
             (it.context as? LifecycleOwner)?.lifecycle?.let { lc ->
@@ -188,6 +193,7 @@ class OverlayService : Service() {
         val fpsVal     by fps
         val thermal    by thermalLevel
         val rl         by rlEnabled
+        val speedVal   by runtimeSpeed
         var offsetX    by remember { mutableStateOf(0f) }
         var offsetY    by remember { mutableStateOf(0f) }
         var isDragging by remember { mutableStateOf(false) }
@@ -409,6 +415,72 @@ class OverlayService : Service() {
                                 HorizontalDivider(color = Color(0xFF37474F))
                                 Spacer(Modifier.height(4.dp))
 
+                                // ── Speed multiplier row ──────────────────────
+                                Row(
+                                    verticalAlignment     = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        "SPD",
+                                        fontSize   = 8.sp,
+                                        color      = Color(0xFF546E7A),
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Spacer(Modifier.width(2.dp))
+                                    FilledTonalIconButton(
+                                        onClick  = {
+                                            val next = prevSpeed(speedVal)
+                                            runtimeSpeed.value = next
+                                            simplePlayback.runtimeSpeedMultiplier = next
+                                        },
+                                        modifier = Modifier.size(24.dp),
+                                        colors   = IconButtonDefaults.filledTonalIconButtonColors(
+                                            containerColor = Color(0xFF1A2030)
+                                        )
+                                    ) {
+                                        Text("−", color = Color(0xFF00E5FF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Text(
+                                        "%.2fx".format(speedVal),
+                                        fontSize   = 11.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        color      = Color(0xFF00E5FF),
+                                        modifier   = Modifier.width(40.dp)
+                                    )
+                                    FilledTonalIconButton(
+                                        onClick  = {
+                                            val next = nextSpeed(speedVal)
+                                            runtimeSpeed.value = next
+                                            simplePlayback.runtimeSpeedMultiplier = next
+                                        },
+                                        modifier = Modifier.size(24.dp),
+                                        colors   = IconButtonDefaults.filledTonalIconButtonColors(
+                                            containerColor = Color(0xFF1A2030)
+                                        )
+                                    ) {
+                                        Text("+", color = Color(0xFF00E5FF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Spacer(Modifier.weight(1f))
+
+                                    val macroName by simplePlayback.currentMacroName.collectAsState()
+                                    val loopCount by simplePlayback.completedLoops.collectAsState()
+                                    if (macroName != null) {
+                                        Text(
+                                            "${macroName!!.take(13)}  L${loopCount}",
+                                            fontSize   = 8.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color      = Color(0xFF546E7A),
+                                            maxLines   = 1
+                                        )
+                                    }
+                                }
+
+                                Spacer(Modifier.height(4.dp))
+                                HorizontalDivider(color = Color(0xFF263238))
+                                Spacer(Modifier.height(4.dp))
+
                                 // ── Log stream ────────────────────────────────
                                 val listState = rememberLazyListState()
                                 LaunchedEffect(logEntries.size) {
@@ -449,6 +521,28 @@ class OverlayService : Service() {
     }
 
     private fun Float.fmt(decimals: Int) = "%.${decimals}f".format(this)
+
+    private fun nextSpeed(current: Float): Float = when {
+        current < 0.50f -> 0.50f
+        current < 0.75f -> 0.75f
+        current < 1.00f -> 1.00f
+        current < 1.25f -> 1.25f
+        current < 1.50f -> 1.50f
+        current < 2.00f -> 2.00f
+        current < 3.00f -> 3.00f
+        else            -> 4.00f
+    }
+
+    private fun prevSpeed(current: Float): Float = when {
+        current > 3.00f -> 3.00f
+        current > 2.00f -> 2.00f
+        current > 1.50f -> 1.50f
+        current > 1.25f -> 1.25f
+        current > 1.00f -> 1.00f
+        current > 0.75f -> 0.75f
+        current > 0.50f -> 0.50f
+        else            -> 0.25f
+    }
 
     companion object {
         fun startIntent(context: Context) = Intent(context, OverlayService::class.java)

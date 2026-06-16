@@ -84,6 +84,13 @@ class SimplePlaybackEngine @Inject constructor(
      */
     @Volatile var runtimeShowDots: Boolean? = null
 
+    /**
+     * Runtime speed override from the overlay speed control.
+     * - null        → honour per-macro [PlaybackConfig.speedMultiplier]
+     * - 0.25f–4.0f  → override; scales all delays and intervals
+     */
+    @Volatile var runtimeSpeedMultiplier: Float? = null
+
     // ── Public API ────────────────────────────────────────────────────────────
 
     fun play(macro: SimpleMacro) {
@@ -181,6 +188,7 @@ class SimplePlaybackEngine @Inject constructor(
     ) {
         val svc      = MacroAccessibilityService.get()
         val showDots = runtimeShowDots ?: cfg.showTapDots
+        val speed    = runtimeSpeedMultiplier?.coerceIn(0.25f, 4.0f) ?: cfg.speedMultiplier
 
         when (action.type) {
 
@@ -206,9 +214,33 @@ class SimplePlaybackEngine @Inject constructor(
             }
 
             SimpleActionType.WAIT -> {
-                val waitMs = (action.durationMs / cfg.speedMultiplier).toLong().coerceAtLeast(10L)
+                val waitMs = (action.durationMs / speed).toLong().coerceAtLeast(10L)
                 delay(waitMs)
                 eventBus.emit(TitanEvent.GestureDispatched(type = "WAIT", x = 0f, y = 0f, success = true))
+            }
+
+            SimpleActionType.SCROLL -> {
+                val ok = svc?.dispatchScroll(action.scrollDirection, action.scrollDistance) ?: false
+                eventBus.emit(TitanEvent.GestureDispatched(type = "SCROLL:${action.scrollDirection}", x = 0.5f, y = 0.5f, success = ok))
+            }
+
+            SimpleActionType.KEY_PRESS -> {
+                val ok = svc?.performKeyAction(action.keyCode) ?: false
+                eventBus.emit(TitanEvent.GestureDispatched(type = "KEY:${action.keyCode}", x = 0f, y = 0f, success = ok))
+            }
+
+            SimpleActionType.REPEAT_TAP -> {
+                var allOk = true
+                if (svc != null) {
+                    val interval = (action.repeatIntervalMs / speed).toLong().coerceAtLeast(16L)
+                    repeat(action.repeatCount) { i ->
+                        if (showDots) tapDotRenderer.show(action.x, action.y)
+                        val r = svc.dispatchClick(action.x, action.y)
+                        if (!r) allOk = false
+                        if (i < action.repeatCount - 1) delay(interval)
+                    }
+                } else allOk = false
+                eventBus.emit(TitanEvent.GestureDispatched(type = "REPEAT_TAP×${action.repeatCount}", x = action.x, y = action.y, success = allOk))
             }
 
             SimpleActionType.WAIT_FOR_IMAGE -> {
@@ -247,7 +279,7 @@ class SimplePlaybackEngine @Inject constructor(
             action.type != SimpleActionType.WAIT_FOR_OCR_TEXT &&
             action.type != SimpleActionType.WAIT
         ) {
-            val scaledDelay = (action.delayAfterMs / cfg.speedMultiplier).toLong()
+            val scaledDelay = (action.delayAfterMs / speed).toLong()
                 .coerceAtLeast(10L) + thermalSlowdown
             if (scaledDelay > 0) delay(scaledDelay)
         }
