@@ -47,7 +47,12 @@ data class SimpleAction(
     val keyCode: String = "BACK",            // BACK / HOME / RECENTS / NOTIFICATIONS / VOL_UP / VOL_DOWN
     // ── Repeat tap fields ─────────────────────────────────────────────────────
     val repeatCount: Int = 5,                // number of rapid taps
-    val repeatIntervalMs: Long = 80L         // ms between taps (scaled by speedMultiplier)
+    val repeatIntervalMs: Long = 80L,        // ms between taps (scaled by speedMultiplier)
+    // ── Type text fields ──────────────────────────────────────────────────────
+    val textToType: String = "",             // TYPE_TEXT: text to write into focused field
+    // ── Launch app fields ─────────────────────────────────────────────────────
+    val packageName: String = "",            // LAUNCH_APP: target package (e.g. com.android.chrome)
+    val activityName: String = ""            // LAUNCH_APP: optional fully-qualified Activity name
 )
 
 @Serializable
@@ -57,7 +62,9 @@ enum class SimpleActionType {
     WAIT_FOR_OCR_TEXT, // pause until OCR finds matching text on screen
     SCROLL,            // swipe-based content scroll (UP / DOWN / LEFT / RIGHT)
     KEY_PRESS,         // system key action (HOME / BACK / RECENTS / VOL_UP / VOL_DOWN)
-    REPEAT_TAP;        // rapid multi-tap at same location (N times)
+    REPEAT_TAP,        // rapid multi-tap at same location (N times)
+    TYPE_TEXT,         // write text to clipboard then paste into the focused input field
+    LAUNCH_APP;        // launch an installed app by package name
 
     fun displayName() = when (this) {
         TAP               -> "Tap"
@@ -69,6 +76,8 @@ enum class SimpleActionType {
         SCROLL            -> "Scroll"
         KEY_PRESS         -> "Key Press"
         REPEAT_TAP        -> "Repeat Tap"
+        TYPE_TEXT         -> "Type Text"
+        LAUNCH_APP        -> "Launch App"
     }
 
     fun emoji() = when (this) {
@@ -81,6 +90,8 @@ enum class SimpleActionType {
         SCROLL            -> "⬇"
         KEY_PRESS         -> "🔑"
         REPEAT_TAP        -> "🔁"
+        TYPE_TEXT         -> "⌨"
+        LAUNCH_APP        -> "🚀"
     }
 }
 

@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -59,6 +60,7 @@ class MacroBuilderViewModel @Inject constructor(
     val currentMacroName : StateFlow<String?>  = playbackEngine.currentMacroName
     val completedLoops   : StateFlow<Int>      = playbackEngine.completedLoops
     val currentStepIndex : StateFlow<Int>      = playbackEngine.currentStepIndex
+    val totalSteps       : StateFlow<Int>      = playbackEngine.totalSteps
 
     // ── Scheduler ─────────────────────────────────────────────────────────────
 
@@ -120,6 +122,38 @@ class MacroBuilderViewModel @Inject constructor(
         macroScheduler.cancel(id)
         if (_editingMacro.value?.id == id) _editingMacro.value = null
         viewModelScope.launch { repository.deleteMacro(id) }
+    }
+
+    fun duplicateMacro(macro: SimpleMacro) {
+        val copy = macro.copy(
+            id        = UUID.randomUUID().toString(),
+            name      = "${macro.name} (copy)",
+            actions   = macro.actions.map { it.copy(id = UUID.randomUUID().toString()) },
+            createdAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis()
+        )
+        viewModelScope.launch { repository.saveMacro(copy) }
+    }
+
+    fun renameMacro(id: String, newName: String) {
+        val trimmed = newName.trim().ifBlank { return }
+        viewModelScope.launch {
+            val macro = repository.getMacro(id) ?: return@launch
+            repository.saveMacro(macro.copy(name = trimmed, updatedAt = System.currentTimeMillis()))
+        }
+    }
+
+    fun importMacroFromJson(json: String): Result<SimpleMacro> = runCatching {
+        val parsed = exportJson.decodeFromString<SimpleMacro>(json.trim())
+        val imported = parsed.copy(
+            id        = UUID.randomUUID().toString(),
+            name      = "${parsed.name} (imported)",
+            actions   = parsed.actions.map { it.copy(id = UUID.randomUUID().toString()) },
+            createdAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis()
+        )
+        viewModelScope.launch { repository.saveMacro(imported) }
+        imported
     }
 
     // ── Step editing ──────────────────────────────────────────────────────────
@@ -268,6 +302,14 @@ class MacroBuilderViewModel @Inject constructor(
     fun buildNewRepeatTap() = SimpleAction(
         UUID.randomUUID().toString(), SimpleActionType.REPEAT_TAP,
         repeatCount = 5, repeatIntervalMs = 80L, delayAfterMs = 300L, label = "Repeat Tap ×5"
+    )
+    fun buildNewTypeText() = SimpleAction(
+        UUID.randomUUID().toString(), SimpleActionType.TYPE_TEXT,
+        textToType = "", delayAfterMs = 200L, label = "Type Text"
+    )
+    fun buildNewLaunchApp() = SimpleAction(
+        UUID.randomUUID().toString(), SimpleActionType.LAUNCH_APP,
+        packageName = "", activityName = "", delayAfterMs = 800L, label = "Launch App"
     )
 
     fun loopModeOptions()     = LoopMode.values().toList()

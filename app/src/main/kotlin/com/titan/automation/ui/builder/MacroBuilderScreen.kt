@@ -84,6 +84,7 @@ private fun MacroListScreen(
     modifier: Modifier = Modifier
 ) {
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showImportDialog by remember { mutableStateOf(false) }
     val isPlaying        by viewModel.isPlaying.collectAsStateWithLifecycle()
     val currentName      by viewModel.currentMacroName.collectAsStateWithLifecycle()
     val scheduledJobs    by viewModel.scheduledJobs.collectAsStateWithLifecycle()
@@ -119,11 +120,20 @@ private fun MacroListScreen(
                         onStop       = viewModel::stop,
                         onEdit       = { viewModel.openMacro(macro) },
                         onDelete     = { viewModel.deleteMacro(macro.id) },
-                        onCancelSchedule = { viewModel.cancelSchedule(macro.id) }
+                        onCancelSchedule = { viewModel.cancelSchedule(macro.id) },
+                        onDuplicate  = { viewModel.duplicateMacro(macro) },
+                        onRename     = { newName -> viewModel.renameMacro(macro.id, newName) }
                     )
                 }
             }
         }
+
+        SmallFloatingActionButton(
+            onClick        = { showImportDialog = true },
+            modifier       = Modifier.align(Alignment.BottomEnd).padding(bottom = 90.dp, end = 28.dp),
+            containerColor = Color(0xFF1A2030),
+            contentColor   = MUTED
+        ) { Icon(Icons.Default.FileDownload, "Import macro JSON", modifier = Modifier.size(20.dp)) }
 
         FloatingActionButton(
             onClick          = { showCreateDialog = true },
@@ -137,6 +147,16 @@ private fun MacroListScreen(
         CreateMacroDialog(
             onConfirm = { name -> viewModel.createMacro(name); showCreateDialog = false },
             onDismiss = { showCreateDialog = false }
+        )
+    }
+
+    if (showImportDialog) {
+        ImportMacroDialog(
+            onConfirm = { json ->
+                viewModel.importMacroFromJson(json)
+                    .onFailure { /* JSON was invalid — dialog already closed */ }
+            },
+            onDismiss = { showImportDialog = false }
         )
     }
 }
@@ -172,9 +192,13 @@ private fun MacroCard(
     onStop: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onCancelSchedule: () -> Unit
+    onCancelSchedule: () -> Unit,
+    onDuplicate: () -> Unit,
+    onRename: (String) -> Unit
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showMenu          by remember { mutableStateOf(false) }
+    var showRenameDialog  by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -256,8 +280,38 @@ private fun MacroCard(
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Default.Delete, "Delete", tint = MUTED, modifier = Modifier.size(18.dp))
+                Box {
+                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.MoreVert, "More options", tint = MUTED, modifier = Modifier.size(18.dp))
+                    }
+                    DropdownMenu(
+                        expanded         = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        containerColor   = SURFACE
+                    ) {
+                        DropdownMenuItem(
+                            text    = { Text("Duplicate", color = Color.White, fontSize = 14.sp) },
+                            onClick = { onDuplicate(); showMenu = false },
+                            leadingIcon = {
+                                Icon(Icons.Default.ContentCopy, null, tint = Color(0xFF80CBC4), modifier = Modifier.size(18.dp))
+                            }
+                        )
+                        DropdownMenuItem(
+                            text    = { Text("Rename", color = Color.White, fontSize = 14.sp) },
+                            onClick = { showRenameDialog = true; showMenu = false },
+                            leadingIcon = {
+                                Icon(Icons.Default.Edit, null, tint = CYAN, modifier = Modifier.size(18.dp))
+                            }
+                        )
+                        HorizontalDivider(color = BORDER.copy(alpha = 0.5f))
+                        DropdownMenuItem(
+                            text    = { Text("Delete", color = RED, fontSize = 14.sp) },
+                            onClick = { showDeleteConfirm = true; showMenu = false },
+                            leadingIcon = {
+                                Icon(Icons.Default.Delete, null, tint = RED, modifier = Modifier.size(18.dp))
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -276,6 +330,39 @@ private fun MacroCard(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel", color = MUTED) }
+            }
+        )
+    }
+
+    if (showRenameDialog) {
+        var newName by remember { mutableStateOf(macro.name) }
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            containerColor   = SURFACE,
+            title = { Text("Rename macro", color = Color.White, fontWeight = FontWeight.Bold) },
+            text  = {
+                OutlinedTextField(
+                    value         = newName,
+                    onValueChange = { newName = it },
+                    label         = { Text("Name", color = MUTED) },
+                    singleLine    = true,
+                    colors        = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor   = CYAN,
+                        unfocusedBorderColor = BORDER,
+                        focusedTextColor     = Color.White,
+                        unfocusedTextColor   = Color.White,
+                        cursorColor          = CYAN
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick  = { onRename(newName); showRenameDialog = false },
+                    enabled  = newName.isNotBlank()
+                ) { Text("Save", color = CYAN, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) { Text("Cancel", color = MUTED) }
             }
         )
     }
@@ -434,6 +521,8 @@ private fun MacroEditorScreen(
             onAddScroll        = { viewModel.addAction(viewModel.buildNewScroll());         showAddMenu = false },
             onAddKeyPress      = { viewModel.addAction(viewModel.buildNewKeyPress());       showAddMenu = false },
             onAddRepeatTap     = { viewModel.addAction(viewModel.buildNewRepeatTap());      showAddMenu = false },
+            onAddTypeText      = { viewModel.addAction(viewModel.buildNewTypeText());       showAddMenu = false },
+            onAddLaunchApp     = { viewModel.addAction(viewModel.buildNewLaunchApp());      showAddMenu = false },
             onDismiss          = { showAddMenu = false }
         )
     }
@@ -511,6 +600,8 @@ private fun StepCard(
         SimpleActionType.SCROLL            -> Color(0xFF4FC3F7)
         SimpleActionType.KEY_PRESS         -> Color(0xFFFFAB40)
         SimpleActionType.REPEAT_TAP        -> Color(0xFFE040FB)
+        SimpleActionType.TYPE_TEXT         -> Color(0xFF80CBC4)
+        SimpleActionType.LAUNCH_APP        -> Color(0xFFFFD54F)
     }
 
     Card(
@@ -569,6 +660,10 @@ private fun StepCard(
                         "key: ${action.keyCode}"
                     SimpleActionType.REPEAT_TAP ->
                         "(${pct(action.x)}, ${pct(action.y)})  ×${action.repeatCount}  @${action.repeatIntervalMs}ms"
+                    SimpleActionType.TYPE_TEXT ->
+                        "\"${action.textToType.take(32).ifBlank { "(empty)" }}\""
+                    SimpleActionType.LAUNCH_APP ->
+                        action.packageName.ifBlank { "(no package set)" }
                 }
                 Text(coordText, color = MUTED, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                 if (action.delayAfterMs > 0 &&
@@ -614,6 +709,8 @@ private fun AddStepMenu(
     onAddScroll: () -> Unit,
     onAddKeyPress: () -> Unit,
     onAddRepeatTap: () -> Unit,
+    onAddTypeText: () -> Unit,
+    onAddLaunchApp: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -630,6 +727,8 @@ private fun AddStepMenu(
                     StepOption("Repeat Tap",         "🔁", Color(0xFFE040FB), onAddRepeatTap),
                     StepOption("Scroll",             "⬇", Color(0xFF4FC3F7), onAddScroll),
                     StepOption("Key Press",          "🔑", Color(0xFFFFAB40), onAddKeyPress),
+                    StepOption("Type Text",          "⌨",  Color(0xFF80CBC4), onAddTypeText),
+                    StepOption("Launch App",         "🚀", Color(0xFFFFD54F), onAddLaunchApp),
                     StepOption("Wait / Delay",       "⏱", MUTED,             onAddWait),
                     StepOption("Wait for Image",     "👁", TEAL,              onAddWaitForImage),
                     StepOption("Wait for Text (OCR)","🔤", GREEN,             onAddWaitForText),
@@ -679,6 +778,9 @@ private fun StepEditorDialog(
     var keyCode          by remember { mutableStateOf(action.keyCode) }
     var repeatCount      by remember { mutableIntStateOf(action.repeatCount) }
     var repeatIntervalMs by remember { mutableLongStateOf(action.repeatIntervalMs) }
+    var textToType       by remember { mutableStateOf(action.textToType) }
+    var packageName      by remember { mutableStateOf(action.packageName) }
+    var activityName     by remember { mutableStateOf(action.activityName) }
 
     val isConditional = type == SimpleActionType.WAIT_FOR_IMAGE || type == SimpleActionType.WAIT_FOR_OCR_TEXT
 
@@ -722,7 +824,8 @@ private fun StepEditorDialog(
                 // ── Gesture coordinates (TAP / LONG_PRESS / SWIPE / REPEAT_TAP) ──
 
                 if (!isConditional && type != SimpleActionType.WAIT &&
-                    type != SimpleActionType.SCROLL && type != SimpleActionType.KEY_PRESS) {
+                    type != SimpleActionType.SCROLL && type != SimpleActionType.KEY_PRESS &&
+                    type != SimpleActionType.TYPE_TEXT && type != SimpleActionType.LAUNCH_APP) {
                     Text("Coordinates (0–100%)", color = MUTED, fontSize = 12.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
@@ -909,10 +1012,68 @@ private fun StepEditorDialog(
                     )
                 }
 
+                // ── TYPE_TEXT fields ──────────────────────────────────────────
+
+                if (type == SimpleActionType.TYPE_TEXT) {
+                    HorizontalDivider(color = BORDER)
+                    Text("Text to type", color = Color(0xFF80CBC4), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(
+                        value         = textToType,
+                        onValueChange = { textToType = it },
+                        label         = { Text("Text content", color = MUTED, fontSize = 12.sp) },
+                        placeholder   = { Text("Hello World", color = MUTED.copy(alpha = 0.4f)) },
+                        minLines      = 2,
+                        maxLines      = 5,
+                        colors        = tfColors(),
+                        modifier      = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Written to clipboard then pasted into the focused field.",
+                        color    = MUTED.copy(alpha = 0.55f),
+                        fontSize = 10.sp
+                    )
+                }
+
+                // ── LAUNCH_APP fields ──────────────────────────────────────────
+
+                if (type == SimpleActionType.LAUNCH_APP) {
+                    HorizontalDivider(color = BORDER)
+                    Text("Launch App", color = Color(0xFFFFD54F), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(
+                        value         = packageName,
+                        onValueChange = {
+                            packageName = it
+                            if (label.startsWith("Launch") || label == "Launch App")
+                                label = "Launch ${it.substringAfterLast('.', it.take(20))}"
+                        },
+                        label         = { Text("Package name", color = MUTED, fontSize = 12.sp) },
+                        placeholder   = { Text("com.android.chrome", color = MUTED.copy(alpha = 0.4f)) },
+                        colors        = tfColors(),
+                        modifier      = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value         = activityName,
+                        onValueChange = { activityName = it },
+                        label         = { Text("Activity class (optional)", color = MUTED, fontSize = 12.sp) },
+                        placeholder   = { Text("com.android.chrome.Main", color = MUTED.copy(alpha = 0.4f)) },
+                        colors        = tfColors(),
+                        modifier      = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Leave Activity blank to use the default launcher entry.",
+                        color    = MUTED.copy(alpha = 0.55f),
+                        fontSize = 10.sp
+                    )
+                }
+
                 // ── Duration / delay ───────────────────────────────────────────
 
                 if (!isConditional && type != SimpleActionType.SCROLL &&
-                    type != SimpleActionType.KEY_PRESS && type != SimpleActionType.REPEAT_TAP) {
+                    type != SimpleActionType.KEY_PRESS && type != SimpleActionType.REPEAT_TAP &&
+                    type != SimpleActionType.TYPE_TEXT && type != SimpleActionType.LAUNCH_APP) {
                     val durLabel = when (type) {
                         SimpleActionType.WAIT       -> "Wait: ${durationMs}ms"
                         SimpleActionType.LONG_PRESS -> "Hold: ${durationMs}ms"
@@ -973,7 +1134,10 @@ private fun StepEditorDialog(
                                 scrollDistance      = scrollDistance,
                                 keyCode             = keyCode,
                                 repeatCount         = repeatCount,
-                                repeatIntervalMs    = repeatIntervalMs
+                                repeatIntervalMs    = repeatIntervalMs,
+                                textToType          = textToType,
+                                packageName         = packageName,
+                                activityName        = activityName
                             ))
                         },
                         modifier = Modifier.weight(1f),
@@ -1241,6 +1405,44 @@ private fun ExportDialog(json: String, macroName: String, onDismiss: () -> Unit)
 // ── Create dialog ─────────────────────────────────────────────────────────────
 
 @Composable
+private fun ImportMacroDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var jsonText  by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor   = SURFACE,
+        title = { Text("Import macro JSON", color = Color.White, fontWeight = FontWeight.Bold) },
+        text  = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Paste exported macro JSON below:", color = MUTED, fontSize = 13.sp)
+                OutlinedTextField(
+                    value         = jsonText,
+                    onValueChange = { jsonText = it },
+                    placeholder   = { Text("{\"id\":\"...\",\"name\":\"...", color = MUTED.copy(alpha = 0.35f), fontSize = 11.sp) },
+                    minLines      = 4,
+                    maxLines      = 8,
+                    colors        = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor   = CYAN,
+                        unfocusedBorderColor = BORDER,
+                        focusedTextColor     = Color.White,
+                        unfocusedTextColor   = Color.White,
+                        cursorColor          = CYAN
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick  = { onConfirm(jsonText); onDismiss() },
+                enabled  = jsonText.isNotBlank()
+            ) { Text("Import", color = CYAN, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = MUTED) }
+        }
+    )
+}
+
 private fun CreateMacroDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
     AlertDialog(

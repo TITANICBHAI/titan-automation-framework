@@ -74,6 +74,9 @@ class SimplePlaybackEngine @Inject constructor(
     private val _currentStepIndex = MutableStateFlow(0)
     val currentStepIndex: StateFlow<Int> = _currentStepIndex.asStateFlow()
 
+    private val _totalSteps = MutableStateFlow(0)
+    val totalSteps: StateFlow<Int> = _totalSteps.asStateFlow()
+
     /**
      * Runtime override for tap-dot visibility.
      * - null  → honour per-macro [PlaybackConfig.showTapDots]
@@ -99,7 +102,8 @@ class SimplePlaybackEngine @Inject constructor(
 
         _isPlaying.value      = true
         _currentMacroName.value = macro.name
-        _completedLoops.value = 0
+        _completedLoops.value   = 0
+        _totalSteps.value       = macro.actions.size
         _currentStepIndex.value = 0
 
         val cfg = macro.playbackConfig
@@ -164,6 +168,7 @@ class SimplePlaybackEngine @Inject constructor(
                 _isPlaying.value        = false
                 _currentMacroName.value = null
                 _currentStepIndex.value = 0
+                _totalSteps.value       = 0
                 resetJitter()
                 eventBus.emit(TitanEvent.EngineStopped)
             }
@@ -176,6 +181,7 @@ class SimplePlaybackEngine @Inject constructor(
         _isPlaying.value        = false
         _currentMacroName.value = null
         _currentStepIndex.value = 0
+        _totalSteps.value       = 0
         resetJitter()
     }
 
@@ -241,6 +247,16 @@ class SimplePlaybackEngine @Inject constructor(
                     }
                 } else allOk = false
                 eventBus.emit(TitanEvent.GestureDispatched(type = "REPEAT_TAP×${action.repeatCount}", x = action.x, y = action.y, success = allOk))
+            }
+
+            SimpleActionType.TYPE_TEXT -> {
+                val ok = svc?.typeText(action.textToType) ?: false
+                eventBus.emit(TitanEvent.GestureDispatched(type = "TYPE_TEXT", x = 0f, y = 0f, success = ok))
+            }
+
+            SimpleActionType.LAUNCH_APP -> {
+                val ok = svc?.launchApp(action.packageName, action.activityName) ?: false
+                eventBus.emit(TitanEvent.GestureDispatched(type = "LAUNCH:${action.packageName}", x = 0f, y = 0f, success = ok))
             }
 
             SimpleActionType.WAIT_FOR_IMAGE -> {

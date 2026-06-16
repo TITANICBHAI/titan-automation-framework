@@ -9,7 +9,14 @@ import android.os.Handler
 import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.WindowManager
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.ComponentName
+import android.content.Intent
+import android.os.SystemClock
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import com.titan.automation.events.TitanEvent
 import com.titan.automation.events.TitanEventBus
 import dagger.hilt.android.AndroidEntryPoint
@@ -413,6 +420,44 @@ class MacroAccessibilityService : AccessibilityService() {
         }
         else            -> false
     }
+
+    /**
+     * Types [text] into the currently focused input field by writing to the
+     * system clipboard then issuing ACTION_PASTE on the focused node (or Ctrl+V
+     * as a fallback for apps that don't expose an input AccessibilityNodeInfo).
+     */
+    fun typeText(text: String): Boolean {
+        val cm = getSystemService(CLIPBOARD_SERVICE) as? ClipboardManager ?: return false
+        cm.setPrimaryClip(ClipData.newPlainText("titan_type", text))
+        val focused = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        return if (focused != null) {
+            focused.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+        } else {
+            val t    = SystemClock.uptimeMillis()
+            val down = KeyEvent(t, t, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_PASTE, 0, KeyEvent.META_CTRL_ON)
+            val up   = KeyEvent(t, t, KeyEvent.ACTION_UP,   KeyEvent.KEYCODE_PASTE, 0, KeyEvent.META_CTRL_ON)
+            dispatchKeyEvent(down) && dispatchKeyEvent(up)
+        }
+    }
+
+    /**
+     * Launches [packageName].  If [activityName] is non-blank that exact
+     * Activity is started; otherwise the app's main launcher intent is used.
+     */
+    fun launchApp(packageName: String, activityName: String = ""): Boolean = try {
+        val intent = if (activityName.isNotBlank()) {
+            Intent().apply {
+                component = ComponentName(packageName, activityName)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        } else {
+            this.packageManager.getLaunchIntentForPackage(packageName)
+                ?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                ?: return false
+        }
+        startActivity(intent)
+        true
+    } catch (_: Exception) { false }
 
     companion object {
         @Volatile private var instance: MacroAccessibilityService? = null

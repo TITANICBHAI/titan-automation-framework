@@ -478,6 +478,38 @@ class OverlayService : Service() {
                                 }
 
                                 Spacer(Modifier.height(4.dp))
+
+                                // ── Step progress ─────────────────────────────
+                                val stepIdx   by simplePlayback.currentStepIndex.collectAsState()
+                                val stepTotal by simplePlayback.totalSteps.collectAsState()
+                                if (stepTotal > 0) {
+                                    Row(
+                                        verticalAlignment    = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier             = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            "STEP",
+                                            fontSize   = 8.sp,
+                                            color      = Color(0xFF546E7A),
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                        LinearProgressIndicator(
+                                            progress   = { (stepIdx + 1).toFloat() / stepTotal.coerceAtLeast(1) },
+                                            modifier   = Modifier.weight(1f).height(4.dp),
+                                            color      = Color(0xFF00E5FF),
+                                            trackColor = Color(0xFF1A2030)
+                                        )
+                                        Text(
+                                            "${stepIdx + 1}/$stepTotal",
+                                            fontSize   = 8.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color      = Color(0xFF546E7A)
+                                        )
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                }
+
                                 HorizontalDivider(color = Color(0xFF263238))
                                 Spacer(Modifier.height(4.dp))
 
