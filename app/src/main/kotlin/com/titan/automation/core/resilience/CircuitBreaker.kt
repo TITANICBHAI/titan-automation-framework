@@ -97,7 +97,7 @@ class CircuitBreaker(
      * Convenience wrapper: guards the call with this circuit breaker.
      * Returns null if the circuit is OPEN or if [block] throws.
      */
-    inline fun <T> execute(block: () -> T): T? {
+    fun <T> execute(block: () -> T): T? {
         if (!allowExecution()) return null
         return try {
             val result = block()

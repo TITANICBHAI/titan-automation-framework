@@ -3,6 +3,7 @@ package com.titan.automation.core
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import javax.inject.Inject
 import javax.inject.Qualifier
@@ -77,10 +78,10 @@ class TitanCoroutineScopes @Inject constructor() {
         CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     fun cancelAll() {
-        application.coroutineContext[SupervisorJob]?.cancel()
-        capture.coroutineContext[SupervisorJob]?.cancel()
-        inference.coroutineContext[SupervisorJob]?.cancel()
-        vision.coroutineContext[SupervisorJob]?.cancel()
+        application.coroutineContext[Job]?.cancel()
+        capture.coroutineContext[Job]?.cancel()
+        inference.coroutineContext[Job]?.cancel()
+        vision.coroutineContext[Job]?.cancel()
     }
 }
 

@@ -65,31 +65,3 @@ class ExperienceReplay @Inject constructor() {
     suspend fun clear() = mutex.withLock { buffer.clear(); addCount = 0 }
 }
 
-/**
- * A single RL transition tuple.
- *
- * @param state      Encoded state vector before the action.
- * @param actionIdx  Index of the action taken.
- * @param reward     Immediate reward signal (from [RewardEvaluator]).
- * @param nextState  Encoded state vector after the action.
- * @param done       True if the workflow loop completed (terminal state).
- */
-data class Experience(
-    val state     : FloatArray,
-    val actionIdx : Int,
-    val reward    : Float,
-    val nextState : FloatArray,
-    val done      : Boolean
-) {
-    // FloatArray does not implement structural equals — override for correctness
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is Experience) return false
-        return actionIdx == other.actionIdx &&
-               reward    == other.reward    &&
-               done      == other.done      &&
-               state.contentEquals(other.state) &&
-               nextState.contentEquals(other.nextState)
-    }
-    override fun hashCode(): Int = actionIdx * 31 + reward.hashCode()
-}

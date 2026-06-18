@@ -43,7 +43,7 @@ fun Bitmap.scaleTo(targetWidth: Int, targetHeight: Int, reuse: Bitmap? = null): 
     if (width == targetWidth && height == targetHeight) return this
     val out = if (reuse?.width == targetWidth && reuse.height == targetHeight &&
                   reuse.config == config) reuse
-              else Bitmap.createBitmap(targetWidth, targetHeight, config)
+              else Bitmap.createBitmap(targetWidth, targetHeight, config ?: Bitmap.Config.ARGB_8888)
     val canvas = android.graphics.Canvas(out)
     val m = Matrix().also { it.setScale(targetWidth / width.toFloat(), targetHeight / height.toFloat()) }
     canvas.drawBitmap(this, m, null)

@@ -88,6 +88,7 @@ class FramePipeline @Inject constructor(
 data class CapturedFrame(
     val bitmap     : Bitmap?,
     val timestampMs: Long,
-    val rotation   : Int,
+    val fps        : Float   = 0f,
+    val rotation   : Int     = 0,
     val isEof      : Boolean = false
 )

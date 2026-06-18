@@ -10,9 +10,12 @@ import android.graphics.Rect
  */
 sealed class DetectionResult {
 
+    /** Best confidence observed for this result (0f for Skipped/Error). */
+    open val confidence: Float get() = 0f
+
     /** A detection that matched above the configured threshold. */
     data class Found(
-        val confidence  : Float,
+        override val confidence  : Float,
         val bounds      : Rect,
         val centerX     : Int,
         val centerY     : Int,
@@ -27,7 +30,7 @@ sealed class DetectionResult {
 
     /** No match found above threshold. Carries best observed confidence for diagnostics. */
     data class NotFound(
-        val confidence : Float = 0f,
+        override val confidence : Float = 0f,
         val reason     : String = ""
     ) : DetectionResult()
 
@@ -40,11 +43,6 @@ sealed class DetectionResult {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     val isFound: Boolean get() = this is Found
-    val confidence: Float get() = when (this) {
-        is Found    -> confidence
-        is NotFound -> confidence
-        else        -> 0f
-    }
 }
 
 /**

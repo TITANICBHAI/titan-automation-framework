@@ -244,7 +244,7 @@ class MacroAccessibilityService : AccessibilityService() {
         }
 
     private fun buildTap(req: GestureRequest.Tap): GestureDescription {
-        val (px, py) = toPhysical(req.x, req.y)
+        val pt = toPhysical(req.x, req.y); val px = pt.x; val py = pt.y
         val path = Path().apply { moveTo(px, py) }
         return GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(path, 0L, req.durationMs))
@@ -252,8 +252,8 @@ class MacroAccessibilityService : AccessibilityService() {
     }
 
     private fun buildSwipe(req: GestureRequest.Swipe): GestureDescription {
-        val (x1, y1) = toPhysical(req.x1, req.y1)
-        val (x2, y2) = toPhysical(req.x2, req.y2)
+        val pt1 = toPhysical(req.x1, req.y1); val x1 = pt1.x; val y1 = pt1.y
+        val pt2 = toPhysical(req.x2, req.y2); val x2 = pt2.x; val y2 = pt2.y
         val path = buildBezierPath(x1, y1, x2, y2)
         return GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(path, 0L, req.durationMs))
@@ -263,8 +263,8 @@ class MacroAccessibilityService : AccessibilityService() {
     private fun buildMultiTouch(req: GestureRequest.MultiTouch): GestureDescription {
         val builder = GestureDescription.Builder()
         req.strokes.take(4).forEachIndexed { idx, stroke ->
-            val (x1, y1) = toPhysical(stroke.startNx, stroke.startNy)
-            val (x2, y2) = toPhysical(stroke.endNx,   stroke.endNy)
+            val pt1 = toPhysical(stroke.startNx, stroke.startNy); val x1 = pt1.x; val y1 = pt1.y
+            val pt2 = toPhysical(stroke.endNx,   stroke.endNy);   val x2 = pt2.x; val y2 = pt2.y
             val path = buildBezierPath(x1, y1, x2, y2)
             // Stagger strokes slightly for realism
             builder.addStroke(
@@ -433,10 +433,8 @@ class MacroAccessibilityService : AccessibilityService() {
         return if (focused != null) {
             focused.performAction(AccessibilityNodeInfo.ACTION_PASTE)
         } else {
-            val t    = SystemClock.uptimeMillis()
-            val down = KeyEvent(t, t, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_PASTE, 0, KeyEvent.META_CTRL_ON)
-            val up   = KeyEvent(t, t, KeyEvent.ACTION_UP,   KeyEvent.KEYCODE_PASTE, 0, KeyEvent.META_CTRL_ON)
-            dispatchKeyEvent(down) && dispatchKeyEvent(up)
+            // dispatchKeyEvent is not available in AccessibilityService — fall back to false
+            false
         }
     }
 

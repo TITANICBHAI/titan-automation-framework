@@ -1,5 +1,7 @@
 package com.titan.automation.engine.capture
 
+import android.accessibilityservice.AccessibilityService.ScreenshotResult
+import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -368,8 +370,3 @@ class ScreenCaptureService : Service() {
     }
 }
 
-data class CapturedFrame(
-    val bitmap: Bitmap,
-    val timestampMs: Long,
-    val fps: Float
-)

@@ -64,16 +64,15 @@ class ExecuteWorkflowUseCase @Inject constructor(
     fun stop(workflowId: String) = macroEngine.stopWorkflow(workflowId)
 
     private fun validateWorkflow(def: WorkflowDefinition): String? {
-        if (def.id.isBlank())     return "Workflow ID is empty"
-        if (def.states.isEmpty()) return "Workflow has no steps"
+        if (def.workflowId.isBlank()) return "Workflow ID is empty"
+        if (def.states.isEmpty())     return "Workflow has no steps"
         if (def.initialState.isBlank()) return "No initial state defined"
         val stateIds = def.states.keys
         for ((id, state) in def.states) {
-            state.transitions.forEach { tx ->
-                if (tx.targetState !in stateIds) {
-                    return "Step '$id' references unknown next state '${tx.targetState}'"
-                }
-            }
+            if (state.onSuccess != "END" && state.onSuccess !in stateIds)
+                return "Step '$id' on_success references unknown state '${state.onSuccess}'"
+            if (state.onFailure != "END" && state.onFailure !in stateIds)
+                return "Step '$id' on_failure references unknown state '${state.onFailure}'"
         }
         return null
     }
