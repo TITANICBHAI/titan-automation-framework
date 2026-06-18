@@ -27,11 +27,14 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags += listOf("-std=c++17", "-fexceptions", "-frtti")
-                arguments += listOf(
-                    // Pass OpenCV SDK dir if available — set OPENCV_SDK_DIR env var
-                    // or skip to build without native OpenCV (Kotlin CV path used instead)
-                    "-DOPENCV_DIR=${System.getenv("OPENCV_SDK_DIR") ?: ""}/sdk/native"
-                )
+                // Only pass OPENCV_DIR when the SDK is actually present.
+                // An empty/missing OPENCV_SDK_DIR must NOT produce a non-empty
+                // -DOPENCV_DIR string — that tricks CMake into linking a .so
+                // that doesn't exist (causing ninja build failures on CI).
+                val opencvSdkDir = System.getenv("OPENCV_SDK_DIR")
+                if (!opencvSdkDir.isNullOrEmpty()) {
+                    arguments += listOf("-DOPENCV_DIR=$opencvSdkDir/sdk/native")
+                }
             }
         }
 
