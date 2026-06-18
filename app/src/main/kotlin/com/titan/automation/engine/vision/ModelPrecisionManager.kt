@@ -1,10 +1,8 @@
 package com.titan.automation.engine.vision
 
-import android.os.PowerManager
 import android.util.Log
 import com.titan.automation.engine.governor.ThermalGovernor
 import com.titan.automation.engine.governor.ThermalLevel
-import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,11 +26,12 @@ class ModelPrecisionManager @Inject constructor(
 ) {
     enum class Precision { FP16, INT8, DISABLED }
 
-    private val thermalLevel: StateFlow<ThermalLevel> = thermalGovernor.thermalLevel
+    private val currentThermalLevel: ThermalLevel
+        get() = thermalGovernor.state.value.thermalLevel
 
     /** Current target precision for the inference pipeline. */
     val currentPrecision: Precision
-        get() = when (thermalLevel.value) {
+        get() = when (currentThermalLevel) {
             ThermalLevel.NORMAL,
             ThermalLevel.LIGHT    -> Precision.FP16
             ThermalLevel.MODERATE -> Precision.INT8

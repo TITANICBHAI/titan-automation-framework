@@ -122,7 +122,7 @@ class DQNLite @Inject constructor() {
      * Perform one SGD update on a mini-batch of [experiences].
      * Returns mean Huber loss for telemetry.
      */
-    fun trainOnBatch(experiences: List<Experience>): Float {
+    fun trainOnBatch(experiences: List<DQNExperience>): Float {
         if (experiences.isEmpty()) return 0f
 
         var totalLoss = 0f
@@ -202,3 +202,11 @@ class DQNLite @Inject constructor() {
     private fun huberLoss(e: Float) = if (kotlin.math.abs(e) <= HUBER_DELTA) 0.5f * e * e
                                       else HUBER_DELTA * (kotlin.math.abs(e) - 0.5f * HUBER_DELTA)
 }
+
+data class DQNExperience(
+    val state     : FloatArray,
+    val actionIdx : Int,
+    val reward    : Float,
+    val nextState : FloatArray,
+    val done      : Boolean = false
+)

@@ -5,7 +5,7 @@ import com.titan.automation.engine.ml.QTable
 import com.titan.automation.engine.ml.RewardEvaluator
 import com.titan.automation.engine.ml.StateEncoder
 import com.titan.automation.engine.ml.ExperienceReplay
-import com.titan.automation.engine.ml.Experience
+import com.titan.automation.engine.ml.DQNExperience
 import com.titan.automation.engine.ml.DQNLite
 import javax.inject.Inject
 
@@ -101,7 +101,7 @@ class EvaluateRLActionUseCase @Inject constructor(
     ) {
         val nextStateVec = stateEncoder.encode(detections = nextDetections)
 
-        val exp = Experience(
+        val exp = DQNExperience(
             state     = decision.stateVector,
             actionIdx = decision.actionIdx,
             reward    = reward,

@@ -472,6 +472,7 @@ private fun PermissionStepCard(stepNumber: Int, step: OnboardingStep) {
 
 // ── Main app ──────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TitanApp(
     viewModel: MainViewModel,

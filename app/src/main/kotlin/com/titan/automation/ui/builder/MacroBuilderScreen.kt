@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.titan.automation.ui.builder
 
 import androidx.compose.animation.*
@@ -1443,6 +1445,7 @@ private fun ImportMacroDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit
     )
 }
 
+@Composable
 private fun CreateMacroDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
     AlertDialog(

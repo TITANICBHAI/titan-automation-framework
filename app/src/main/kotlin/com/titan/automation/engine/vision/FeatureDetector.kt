@@ -116,19 +116,21 @@ class FeatureDetector @Inject constructor() {
             val cy = matchedPts.map { it.y }.average().toFloat()
             val halfW = (template.width  / 2f)
             val halfH = (template.height / 2f)
-            val bounds = android.graphics.RectF(
-                (cx - halfW).coerceAtLeast(0f),
-                (cy - halfH).coerceAtLeast(0f),
-                (cx + halfW).coerceAtMost(scene.width.toFloat()),
-                (cy + halfH).coerceAtMost(scene.height.toFloat())
+            val boundRect = android.graphics.Rect(
+                (cx - halfW).coerceAtLeast(0f).toInt(),
+                (cy - halfH).coerceAtLeast(0f).toInt(),
+                (cx + halfW).coerceAtMost(scene.width.toFloat()).toInt(),
+                (cy + halfH).coerceAtMost(scene.height.toFloat()).toInt()
             )
 
             templateMat.release(); sceneMat.release()
 
             DetectionResult.Found(
-                label      = "orb-match",
                 confidence = confidence,
-                bounds     = bounds
+                bounds     = boundRect,
+                centerX    = cx.toInt(),
+                centerY    = cy.toInt(),
+                label      = "orb-match"
             )
         } catch (e: UnsatisfiedLinkError) {
             Log.w(TAG, "OpenCV not loaded — FeatureDetector unavailable")

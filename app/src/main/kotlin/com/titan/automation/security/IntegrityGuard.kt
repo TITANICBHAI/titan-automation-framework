@@ -56,17 +56,17 @@ class IntegrityGuard @Inject constructor(
             pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNATURES)
         }
         val sigs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            info.signingInfo.apkContentsSigners
+            info.signingInfo?.apkContentsSigners
         } else {
             @Suppress("DEPRECATION") info.signatures
         }
-        sigs.any { sig ->
+        sigs?.any { sig ->
             // In production, compare against embedded expected hash:
             // val expected = "SHA256:AABBCCDDEEFF..."
             // sha256(sig.toByteArray()) == expected
             // For now: any valid signature present is accepted
             sig.toByteArray().isNotEmpty()
-        }
+        } ?: false
     }.getOrDefault(false)
 
     private fun sha256(bytes: ByteArray): String {

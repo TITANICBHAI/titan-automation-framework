@@ -96,7 +96,7 @@ class CoordinatePicker @Inject constructor(
             onDrag = { dx, dy ->
                 params.x = (params.x + dx.toInt())
                 params.y = (params.y + dy.toInt())
-                runCatching { windowManager.updateViewLayout(view, params) }
+                pickerView?.let { v -> runCatching { windowManager.updateViewLayout(v, params) } }
             }
         )
 

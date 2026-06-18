@@ -244,6 +244,7 @@ class MacroEngine @Inject constructor(
 
         // 1. Capture frame
         val frame = frameProvider.latestFrame.first { it != null }!!.bitmap
+            ?: return StateResult(success = false)
 
         // 2. Conditional branches — evaluated first; first match wins (IF/ELSE)
         if (state.conditions.isNotEmpty()) {

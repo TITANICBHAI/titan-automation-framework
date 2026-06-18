@@ -121,8 +121,8 @@ class OverlayService : Service() {
         lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
-        ViewTreeLifecycleOwner.set(view, lifecycleOwner)
-        ViewTreeViewModelStoreOwner.set(view, lifecycleOwner)
+        view.setViewTreeLifecycleOwner(lifecycleOwner)
+        view.setViewTreeViewModelStoreOwner(lifecycleOwner)
         view.setViewTreeSavedStateRegistryOwner(lifecycleOwner)
 
         windowManager.addView(view, params)
@@ -589,7 +589,7 @@ private class OverlayLifecycleOwner :
     LifecycleOwner {
 
     private val lifecycleRegistry    = LifecycleRegistry(this)
-    private val savedStateController = androidx.savedstate.SavedStateRegistry.SavedStateRegistryController.create(this)
+    private val savedStateController = androidx.savedstate.SavedStateRegistryController.create(this)
     private val vmStore              = ViewModelStore()
 
     override val lifecycle: Lifecycle           get() = lifecycleRegistry

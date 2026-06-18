@@ -28,7 +28,7 @@ class ExperienceReplay @Inject constructor() {
     var trainingInterval : Int = 50
 
     private val mutex   = Mutex()
-    private val buffer  = ArrayDeque<Experience>(capacity + 1)
+    private val buffer  = ArrayDeque<DQNExperience>(capacity + 1)
     private var addCount = 0
 
     // ── API ───────────────────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ class ExperienceReplay @Inject constructor() {
      * Evicts the oldest entry if buffer is full.
      * Returns `true` when [trainingInterval] has been reached (signals caller to train).
      */
-    suspend fun add(experience: Experience): Boolean = mutex.withLock {
+    suspend fun add(experience: DQNExperience): Boolean = mutex.withLock {
         if (buffer.size >= capacity) buffer.removeFirst()
         buffer.addLast(experience)
         addCount++
@@ -49,7 +49,7 @@ class ExperienceReplay @Inject constructor() {
      * Sample a random mini-batch of up to [miniBatchSize] experiences.
      * Returns empty list if buffer doesn't have enough entries yet.
      */
-    suspend fun sampleBatch(): List<Experience> = mutex.withLock {
+    suspend fun sampleBatch(): List<DQNExperience> = mutex.withLock {
         if (buffer.size < miniBatchSize) return@withLock emptyList()
         val indices = IntArray(miniBatchSize) { Random.nextInt(buffer.size) }
         indices.map { buffer[it] }
