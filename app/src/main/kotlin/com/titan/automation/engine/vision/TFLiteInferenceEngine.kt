@@ -6,7 +6,6 @@ import com.titan.automation.engine.governor.ThermalGovernor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.util.Log
 import org.tensorflow.lite.Interpreter
-import org.tensorflow.lite.gpu.GpuDelegate
 import org.tensorflow.lite.support.common.FileUtil
 import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
@@ -41,7 +40,6 @@ class TFLiteInferenceEngine @Inject constructor(
 
     private var sceneInterpreter: Interpreter? = null
     private var buttonInterpreter: Interpreter? = null
-    private var gpuDelegate: GpuDelegate? = null
 
     private val sceneLabels = listOf("menu", "gameplay", "game_over", "reward")
     private val buttonLabels = listOf("interactive", "background", "text_button", "icon_button")
@@ -75,14 +73,7 @@ class TFLiteInferenceEngine @Inject constructor(
             numThreads = 4
             useXNNPACK = true
             setAllowFp16PrecisionForFp32(true)
-
-            // GPU delegate enabled only at safe thermal levels
-            if (thermal.targetFps >= 8) {
-                runCatching {
-                    gpuDelegate = GpuDelegate()
-                    addDelegate(gpuDelegate!!)
-                }
-            }
+            // CPU-only (XNNPACK) — GPU delegate removed; artifact unavailable at TFLite 2.14
         }
 
     fun classifyScene(bitmap: Bitmap): InferenceResult =
@@ -124,15 +115,12 @@ class TFLiteInferenceEngine @Inject constructor(
     fun reloadWithCurrentThermalProfile() {
         sceneInterpreter?.close()
         buttonInterpreter?.close()
-        gpuDelegate?.close()
-        gpuDelegate = null
         loadModels()
     }
 
     override fun close() {
         sceneInterpreter?.close()
         buttonInterpreter?.close()
-        gpuDelegate?.close()
     }
 
     companion object {

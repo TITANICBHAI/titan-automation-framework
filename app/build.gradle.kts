@@ -163,10 +163,9 @@ dependencies {
     // Security (encrypted DataStore)
     implementation(libs.security.crypto)
 
-    // TensorFlow Lite (INT8 / FP16 on-device inference)
+    // TensorFlow Lite (INT8 on-device inference — optional, not on critical path)
     implementation(libs.tflite)
     implementation(libs.tflite.support)
-    implementation(libs.tflite.gpu)
 
     // ML Kit OCR v2
     implementation(libs.mlkit.text.recognition)

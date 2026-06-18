@@ -7,7 +7,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.tensorflow.lite.Interpreter
-import org.tensorflow.lite.gpu.GpuDelegate
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -39,8 +38,6 @@ class InferenceEngine @Inject constructor(
     private val outputBuffers = mutableMapOf<ModelType, Array<FloatArray>>()
     private val labelCache    = mutableMapOf<ModelType, List<String>>()
 
-    private var gpuDelegate: GpuDelegate? = null
-
     // ── Initialisation ────────────────────────────────────────────────────────
 
     /**
@@ -53,12 +50,7 @@ class InferenceEngine @Inject constructor(
         val mappedModel = loadMappedModel(model.assetName)
         val options = Interpreter.Options().apply {
             numThreads = (Runtime.getRuntime().availableProcessors() - 1).coerceIn(1, 4)
-            try {
-                gpuDelegate = GpuDelegate()
-                addDelegate(gpuDelegate!!)
-            } catch (_: Exception) {
-                // GPU delegate not available — silent CPU fallback
-            }
+            // CPU-only (XNNPACK) — GPU delegate removed; artifact unavailable at TFLite 2.14
         }
 
         val interpreter = Interpreter(mappedModel, options)
