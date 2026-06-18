@@ -3,6 +3,7 @@ package com.titan.automation.monitoring
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
@@ -54,7 +55,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class CrashRecoveryManager @Inject constructor(
-    context: Context
+    @ApplicationContext context: Context
 ) {
     private val appContext   = context.applicationContext
     private val prefs: SharedPreferences =
