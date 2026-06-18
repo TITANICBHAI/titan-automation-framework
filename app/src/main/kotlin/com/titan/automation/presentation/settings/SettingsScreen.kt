@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -29,6 +30,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -129,6 +131,9 @@ fun SettingsScreen(
                 }
             }
 
+            // AI Inference (Optional)
+            AiInferenceSection(inferenceAvailable = viewModel.inferenceAvailable)
+
             // Retry policy
             SettingsSection("Retry Policy") {
                 SliderRow(
@@ -162,6 +167,60 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
         }
     }
+}
+
+// ── AI Inference section ───────────────────────────────────────────────────────
+
+@Composable
+private fun AiInferenceSection(inferenceAvailable: Boolean) {
+    val statusColor = if (inferenceAvailable) Color(0xFF00CC44) else Color(0xFFB0BEC5)
+    val statusText  = if (inferenceAvailable) "Loaded" else "Not loaded"
+
+    Text(
+        "AI Inference (Optional)",
+        fontWeight = FontWeight.Bold,
+        fontSize   = 14.sp,
+        color      = MaterialTheme.colorScheme.primary
+    )
+    Spacer(Modifier.height(6.dp))
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors   = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier          = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Model status", modifier = Modifier.weight(1f), fontSize = 13.sp)
+                Text(
+                    text      = statusText,
+                    fontSize  = 12.sp,
+                    color     = statusColor,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text     = "TITAN works fully without AI models. Models enable optional scene " +
+                           "classification that some advanced workflows can request via engine: \"tflite\". " +
+                           "Core automation (template matching, OCR, gestures) is always available.",
+                fontSize = 11.sp,
+                color    = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            FilledTonalButton(
+                onClick  = { /* future: model import */ },
+                enabled  = false,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Import model… (coming soon)", fontSize = 12.sp)
+            }
+        }
+    }
+    Spacer(Modifier.height(16.dp))
 }
 
 // ── Reusable components ────────────────────────────────────────────────────────

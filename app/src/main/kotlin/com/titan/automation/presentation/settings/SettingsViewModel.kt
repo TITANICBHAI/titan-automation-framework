@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.titan.automation.data.datastore.AppSettings
 import com.titan.automation.data.datastore.toAppSettings
+import com.titan.automation.engine.vision.TFLiteInferenceEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,8 +25,12 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    private val tfliteEngine: TFLiteInferenceEngine
 ) : ViewModel() {
+
+    /** True when TFLite model files were found and loaded at startup. */
+    val inferenceAvailable: Boolean get() = tfliteEngine.isAvailable
 
     private val _settings = MutableStateFlow(AppSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()

@@ -79,10 +79,6 @@ class WorkflowDataStore @Inject constructor(
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[Keys.EPSILON] ?: 1f }
 
-    val touchNoiseStdDev: Flow<Float> = store.data
-        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
-        .map { it[Keys.TOUCH_NOISE_STDDEV] ?: 3f }
-
     val overlayEnabled: Flow<Boolean> = store.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[Keys.OVERLAY_ENABLED] ?: true }
@@ -143,10 +139,6 @@ class WorkflowDataStore @Inject constructor(
 
     suspend fun setLearningRate(rate: Float) {
         store.edit { it[Keys.LEARNING_RATE] = rate.coerceIn(0.001f, 1f) }
-    }
-
-    suspend fun setTouchNoiseStdDev(sigma: Float) {
-        store.edit { it[Keys.TOUCH_NOISE_STDDEV] = sigma.coerceIn(0f, 10f) }
     }
 
     suspend fun setDefaultShowDots(show: Boolean) {

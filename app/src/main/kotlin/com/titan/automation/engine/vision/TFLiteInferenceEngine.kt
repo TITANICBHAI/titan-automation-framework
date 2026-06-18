@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import com.titan.automation.engine.governor.ThermalGovernor
 import dagger.hilt.android.qualifiers.ApplicationContext
+import android.util.Log
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.gpu.GpuDelegate
 import org.tensorflow.lite.support.common.FileUtil
@@ -54,13 +55,18 @@ class TFLiteInferenceEngine @Inject constructor(
         loadModels()
     }
 
+    /** True only when both model files were successfully loaded from assets. */
+    val isAvailable: Boolean get() = sceneInterpreter != null && buttonInterpreter != null
+
     private fun loadModels() {
         val options = buildInterpreterOptions()
         runCatching {
-            sceneInterpreter  = Interpreter(FileUtil.loadMappedFile(context, "scene_classifier_int8.tflite"), options)
-            buttonInterpreter = Interpreter(FileUtil.loadMappedFile(context, "button_classifier_int8.tflite"), options)
+            sceneInterpreter  = Interpreter(FileUtil.loadMappedFile(context, "models/scene_classifier_int8.tflite"), options)
+            buttonInterpreter = Interpreter(FileUtil.loadMappedFile(context, "models/button_classifier_int8.tflite"), options)
         }.onFailure {
-            // Models not bundled yet — engine degrades gracefully (returns unknown)
+            // No model files present — operating in disabled mode.
+            // TITAN works fully without models; they are optional scene-classification helpers.
+            Log.d(TAG, "TFLite models not found — inference disabled (normal if no models installed)")
         }
     }
 
@@ -90,8 +96,11 @@ class TFLiteInferenceEngine @Inject constructor(
         bitmap: Bitmap,
         labels: List<String>
     ): InferenceResult {
-        if (interp == null || thermal.isCritical) {
-            return InferenceResult(label = "unknown", confidence = 0f)
+        if (interp == null) {
+            return InferenceResult(label = "no_model", confidence = 0f)
+        }
+        if (thermal.isCritical) {
+            return InferenceResult(label = "no_model", confidence = 0f)
         }
 
         val tensorImage = TensorImage.fromBitmap(bitmap)
@@ -124,5 +133,9 @@ class TFLiteInferenceEngine @Inject constructor(
         sceneInterpreter?.close()
         buttonInterpreter?.close()
         gpuDelegate?.close()
+    }
+
+    companion object {
+        private const val TAG = "TFLiteInferenceEngine"
     }
 }

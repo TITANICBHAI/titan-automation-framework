@@ -1,6 +1,10 @@
 package com.titan.automation.di
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
 import com.titan.automation.core.TitanCoroutineScopes
 import com.titan.automation.core.TitanDispatchers
@@ -124,6 +128,23 @@ object DebugModule {
     @Provides
     @Singleton
     fun provideExecutionTracer(): ExecutionTracer = ExecutionTracer()
+}
+
+// ── App Settings DataStore (Preferences) ─────────────────────────────────────
+// Provides the DataStore<Preferences> instance used by SettingsViewModel.
+// Separate file ("app_settings") from WorkflowDataStore ("titan_engine").
+
+@Module
+@InstallIn(SingletonComponent::class)
+object AppSettingsModule {
+
+    @Provides
+    @Singleton
+    fun provideAppSettingsDataStore(
+        @ApplicationContext context: Context
+    ): DataStore<Preferences> = PreferenceDataStoreFactory.create(
+        produceFile = { context.preferencesDataStoreFile("app_settings") }
+    )
 }
 
 // ── Performance monitoring ────────────────────────────────────────────────────
