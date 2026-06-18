@@ -86,7 +86,7 @@ fun Double.clamp(min: Double, max: Double): Double = coerceIn(min, max)
 /** Linear interpolation. */
 fun Float.lerp(to: Float, t: Float): Float = this + (to - this) * t
 
-/** Map a value from [inMin..inMax] to [outMin..outMax]. */
+/** Map a value from (inMin..inMax) to (outMin..outMax). */
 fun Float.mapRange(inMin: Float, inMax: Float, outMin: Float, outMax: Float): Float {
     if (inMin == inMax) return outMin
     return ((this - inMin) / (inMax - inMin)) * (outMax - outMin) + outMin

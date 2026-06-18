@@ -20,7 +20,7 @@ import javax.inject.Singleton
  * never again. The user can delete seeded workflows from the UI without them
  * reappearing.
  *
- * Bundled workflows (assets/workflows/*.json) are parsed via [WorkflowParser]
+ * Bundled workflows (assets/workflows/NAME.json) are parsed via [WorkflowParser]
  * and upserted via [WorkflowRepository]. Failures per-file are isolated —
  * one malformed JSON does not prevent the others from loading.
  *
